@@ -24,7 +24,7 @@ $MC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 $ZONAS = ['America/Puerto_Rico','America/Santo_Domingo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
   'America/Mexico_City','America/Guatemala','America/Panama','America/Bogota','America/Lima','America/Caracas','America/La_Paz',
   'America/Santiago','America/Argentina/Buenos_Aires','America/Sao_Paulo','Europe/Madrid','Europe/Lisbon'];
-$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy'];
+$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio'];
 $ip = lc_ip();
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $super = !empty($_SESSION['super']);
@@ -62,17 +62,20 @@ if ($negId) {
   date_default_timezone_set($neg['zona']);
 }
 $admin = (bool)$neg;
-$PLAN = $neg ? lc_plan($neg) : ['clave' => 'gratis', 'dias' => null];
-$pro = $PLAN['clave'] !== 'gratis';
-$PLAN_NOMBRE = ['pro' => 'Pro', 'prueba' => 'Prueba gratis', 'gratis' => 'Gratis'];
+$PLAN = $neg ? lc_plan($neg) : ['clave' => 'pro', 'dias' => null];
+$pro = $PLAN['clave'] !== 'cerrado';
+// Prueba vencida sin pago: el dueño solo puede ver la pantalla de pago (el super admin entra igual).
+$cerrado = $admin && !$super && $PLAN['clave'] === 'cerrado';
+$PLAN_NOMBRE = ['pro' => 'Pro', 'prueba' => 'Prueba gratis', 'cerrado' => 'Cerrada'];
 $PERSONAL = LC_PERSONAL[$neg['tipo'] ?? 'barberia'] ?? 'Barbero';
 
 // ── Vista y fecha ───────────────────────────────────────
 $VISTAS = ['dia' => 'Día', 'semana' => 'Semana', 'mes' => 'Mes', 'reporte' => 'Análisis', 'servicios' => 'Servicios',
            'equipo' => 'Equipo', 'negocio' => 'Negocio', 'plan' => 'Plan'];
 if ($super) $VISTAS['negocios'] = 'Negocios';
+if ($cerrado) $VISTAS = ['plan' => 'Plan'];
 $v = $_GET['v'] ?? 'dia';
-if (!isset($VISTAS[$v])) $v = 'dia';
+if (!isset($VISTAS[$v])) $v = isset($VISTAS['dia']) ? 'dia' : 'plan';
 $fecha = $_GET['fecha'] ?? date('Y-m-d');
 $d = DateTime::createFromFormat('!Y-m-d', $fecha);
 if (!$d || $d->format('Y-m-d') !== $fecha) { $fecha = date('Y-m-d'); $d = new DateTime($fecha); }
@@ -121,6 +124,7 @@ function slugLibre($db, $slug, $id = 0) {
 if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!hash_equals($_SESSION['csrf'], (string)($_POST['csrf'] ?? ''))) ir($v, null, 'La página caducó, inténtalo otra vez.');
   $nid = $neg['id']; $id = (int)($_POST['id'] ?? 0); $a = $_POST['accion'] ?? '';
+  if ($cerrado && !in_array($a, ['pagar', 'portal', 'email'], true)) ir('plan', null, 'Tu prueba gratis terminó. Añade tu tarjeta para seguir usando LuniCitas.');
 
   // Citas
   if (isset($_POST['cancelar'])) {
@@ -181,7 +185,6 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
       $db->prepare('UPDATE citas SET barbero = ? WHERE equipo_id = ? AND negocio_id = ? AND fecha >= CURDATE()')->execute([$nombre, $id, $nid]);
     } else {
       $q = $db->prepare('SELECT COUNT(*) FROM equipo WHERE negocio_id = ? AND activo = 1'); $q->execute([$nid]);
-      if (!$pro && $q->fetchColumn() >= 1) { borrarFoto($foto ?: ''); ir('plan', null, 'El plan gratis permite 1 persona. Pasa a Pro para añadir más.'); }
       $db->prepare('INSERT INTO equipo (negocio_id, nombre, especialidad, orden, foto) VALUES (?,?,?,?,?)')
          ->execute([$nid, $nombre, $esp, $orden, $foto ?: '']);
     }
@@ -456,7 +459,7 @@ details.item form{padding:0 12px 12px}.price{color:var(--m);font-weight:700}
 .hor .desc{grid-column:2/4;display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;align-items:center;font-size:12px;color:#8a88a0;margin-bottom:8px}
 .enlace{background:#f1edff;border-radius:12px;padding:10px;font-size:14px;word-break:break-all;margin-bottom:10px}
 table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,table.lista th{padding:8px 6px;border-bottom:1px solid #eee;text-align:left}
-.plan-prueba{color:#b25e00!important}.plan-gratis{color:#8a88a0!important}
+.plan-prueba{color:#b25e00!important}.plan-cerrado{color:#c0392b!important}
 .ck{display:flex;gap:6px;align-items:center;font-size:14px;margin-bottom:10px}.ck input{width:auto;margin:0}
 @media print{.noprint{display:none!important}body{background:#fff}.box,.stat{box-shadow:none;border:1px solid #ddd}}
 </style></head><body><div class="app">
@@ -474,6 +477,7 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
     <?php foreach ($VISTAS as $k => $n): ?><a class="<?= $v === $k ? 'on' : '' ?>" href="<?= e(url($k)) ?>"><?= $n ?></a><?php endforeach; ?>
   </div>
   <?php if ($aviso): ?><div class="aviso noprint"><?= e($aviso) ?></div><?php endif; ?>
+  <?php if ($PLAN['clave'] === 'prueba' && $v !== 'plan'): ?><div class="alerta noprint">⏳ Tu prueba gratis termina en <b><?= $PLAN['dias'] ?> <?= $PLAN['dias'] == 1 ? 'día' : 'días' ?></b>. Después tu cuenta se cierra y tu página deja de recibir reservas hasta que añadas tu tarjeta. <a href="?v=plan">Añadir tarjeta</a></div><?php endif; ?>
   <?php if ($porRecordar && !($v === 'dia' && $fecha === $manana) && in_array($v, ['dia', 'semana'], true)): ?>
     <div class="alerta noprint">🔔 Mañana hay <?= $porRecordar ?> cita<?= $porRecordar > 1 ? 's' : '' ?> sin recordar. <a href="<?= e(url('dia', $manana)) ?>">Enviar recordatorios</a></div>
   <?php endif; ?>
@@ -585,9 +589,7 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
             <button class="btn rojo" name="accion" value="eq_borrar" onclick="return confirm('¿Quitar a esta persona del equipo?')">Quitar</button></div>
         </form></details>
     <?php endforeach; ?>
-    <?php if (!$pro && count($equipo) >= 1): ?>
-    <div class="alerta">El plan gratis incluye 1 persona. <a href="?v=plan">Pasa a Pro</a> para añadir a todo tu equipo.</div>
-    <?php else: ?>
+    <?php if (true): ?>
     <div class="box"><h3>➕ Añadir <?= e(mb_strtolower($PERSONAL)) ?></h3>
       <form method="post" enctype="multipart/form-data" action="<?= e(url('equipo')) ?>"><?= $csrf ?>
         <label>Nombre</label><input name="nombre" maxlength="40" required>
@@ -654,22 +656,22 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
     <?php if (($_GET['pago'] ?? '') === 'ok'): ?><div class="aviso">¡Gracias! Stripe está confirmando tu pago. En unos segundos tu plan aparecerá como Pro; si no, recarga esta página.</div><?php endif; ?>
     <div class="box"><h3>Tu plan: <?= e($PLAN_NOMBRE[$PLAN['clave']]) ?></h3>
       <p style="font-size:14px;color:#6b6980">
-      <?php if ($PLAN['clave'] === 'prueba'): ?>Te quedan <b><?= $PLAN['dias'] ?> días</b> de prueba con todo incluido. Al terminar, tu cuenta sigue funcionando en el plan gratis con 1 persona, salvo que pases a Pro. Si pasas a Pro ahora, no se te cobra hasta que termine la prueba.
+      <?php if ($PLAN['clave'] === 'prueba'): ?>Te quedan <b><?= $PLAN['dias'] ?> <?= $PLAN['dias'] == 1 ? 'día' : 'días' ?></b> de prueba con todo incluido. Cuando termine, <b>tu cuenta se cierra</b> y tu página deja de recibir reservas hasta que añadas tu tarjeta. Tus datos no se pierden.
+      <?php elseif ($PLAN['clave'] === 'cerrado'): ?><b style="color:#c0392b"><?= $neg['stripe_cliente'] ? 'Tu suscripción terminó' : 'Tu prueba gratis terminó' ?> y tu cuenta está cerrada.</b> Tu página no está recibiendo reservas. Añade tu tarjeta para activar Pro y todo vuelve a funcionar al instante, con tus citas, servicios y equipo como los dejaste.
       <?php elseif ($PLAN['clave'] === 'pro' && $pagado && $neg['stripe_cancela']): ?>Cancelaste tu suscripción: <b>no se te volverá a cobrar</b>. Sigues con Pro hasta el <b><?= e(date('j/n/Y', strtotime($neg['stripe_cancela']))) ?></b> y después pasas al plan gratis, sin perder tus citas.
       <?php elseif ($PLAN['clave'] === 'pro'): ?><?= $pagado ? 'Tu suscripción está activa' . ($neg['pagado_hasta'] ? ' y se renueva cerca del ' . e(date('j/n/Y', strtotime($neg['pagado_hasta']))) : '') . '. Puedes cancelarla cuando quieras.' : 'Tienes todas las funciones activas.' ?>
-      <?php else: ?>Tu negocio sigue recibiendo reservas con 1 persona. Pasa a Pro para todo el equipo, recordatorios y análisis.<?php endif; ?></p></div>
-    <div class="grid2">
-      <div class="box"><h3>Gratis</h3><p class="price" style="font-size:22px">$0</p>
-        <p style="font-size:14px;line-height:1.9">✓ Página de reservas y enlace propio<br>✓ Agenda día, semana y mes<br>✓ Servicios, horario y días libres<br>✓ 1 persona en el equipo<br><span style="color:#b9b7c9">✗ Recordatorios por WhatsApp<br>✗ Análisis, Excel y PDF</span></p></div>
+      <?php endif; ?></p></div>
+    <div>
       <div class="box" style="outline:2px solid #7b5cff"><h3>Pro</h3><p class="price" style="font-size:22px"><?= e($precio) ?></p>
-        <p style="font-size:14px;line-height:1.9">✓ Todo lo del plan gratis<br>✓ <b>Equipo sin límite</b><br>✓ Recordatorios por WhatsApp<br>✓ Análisis del mes, Excel y PDF<br>✓ Cancela cuando quieras, sin penalidad</p>
+        <p style="font-size:14px;line-height:1.9">✓ Página de reservas con tu enlace<br>✓ Agenda día, semana y mes<br>✓ <b>Equipo sin límite</b><br>✓ Recordatorios por WhatsApp<br>✓ Análisis del mes, Excel y PDF<br>✓ Cancela cuando quieras, sin penalidad</p>
         <p style="font-size:12px;color:#8a88a0;margin:-4px 0 10px">Se cobra cada mes por adelantado con Stripe. <a href="terminos" target="_blank">Términos</a> · <a href="privacidad" target="_blank">Privacidad</a></p>
         <?php if (lc_stripe_activo()): ?>
           <form method="post" action="<?= e(url('plan')) ?>"><?= $csrf ?>
           <?php if ($pagado): ?><button class="btn gris" name="accion" value="portal" style="width:100%">Administrar pago y recibos</button>
             <?php if ($neg['stripe_cancela']): ?><button class="btn" name="accion" value="reactivar" style="width:100%;margin-top:8px">Seguir con Pro</button>
             <?php else: ?><button class="btn gris" name="accion" value="cancelar" style="width:100%;margin-top:8px;color:#c0392b" onclick="return confirm('¿Cancelar tu suscripción? No se te volverá a cobrar y tendrás Pro hasta el final del periodo que ya pagaste.')">Cancelar suscripción</button><?php endif; ?>
-          <?php elseif ($PLAN['clave'] !== 'pro' || $neg['plan'] !== 'pro'): ?><button class="btn" name="accion" value="pagar" style="width:100%">Pasar a Pro</button><?php endif; ?>
+          <?php elseif ($PLAN['clave'] !== 'pro' || $neg['plan'] !== 'pro'): ?><button class="btn" name="accion" value="pagar" style="width:100%"><?= $PLAN['clave'] === 'cerrado' ? 'Añadir tarjeta y activar' : 'Añadir tarjeta ahora' ?></button>
+            <?php if ($PLAN['clave'] === 'prueba'): ?><p style="font-size:12px;color:#8a88a0;margin-top:6px;text-align:center">No se te cobra hasta que termine tu prueba.</p><?php endif; ?><?php endif; ?>
           </form>
         <?php elseif ($PLAN['clave'] !== 'pro'): ?><p style="font-size:13px;color:#8a88a0">El pago en línea estará disponible muy pronto.</p><?php endif; ?>
       </div>
@@ -698,7 +700,7 @@ $PLAN_PRECIO = '$20 al mes';</pre></li>
         <tr><td><b><?= e($n['nombre']) ?></b><br><small style="color:#8a88a0"><?= e(LC_TIPOS[$n['tipo']] ?? $n['tipo']) ?> · <?= e($n['usuario']) ?></small></td>
           <td><a href="<?= e($base . '/' . $n['slug']) ?>" target="_blank">/<?= e($n['slug']) ?></a></td><td><?= (int)$n['citas'] ?></td>
           <td><form method="post" action="<?= e(url('negocios')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int)$n['id'] ?>"><input type="hidden" name="accion" value="neg_plan">
-            <?php $pn = lc_plan($n); ?><select name="plan" onchange="this.form.submit()" style="margin:0;padding:6px;font-size:13px"><?php foreach (['gratis' => 'Gratis', 'prueba' => 'Prueba', 'pro' => 'Pro'] as $k => $t): ?><option value="<?= $k ?>" <?= $n['plan'] === $k ? 'selected' : '' ?>><?= $t ?></option><?php endforeach; ?></select>
+            <?php $pn = lc_plan($n); ?><select name="plan" onchange="this.form.submit()" style="margin:0;padding:6px;font-size:13px"><?php foreach (['gratis' => 'Cerrada', 'prueba' => 'Prueba', 'pro' => 'Pro'] as $k => $t): ?><option value="<?= $k ?>" <?= $n['plan'] === $k ? 'selected' : '' ?>><?= $t ?></option><?php endforeach; ?></select>
             <small style="color:#8a88a0;display:block"><?= e($PLAN_NOMBRE[$pn['clave']]) ?><?= $pn['dias'] ? ' · ' . $pn['dias'] . ' d' : '' ?><?= $n['stripe_sub'] ? ' · Stripe' : '' ?></small></form></td>
           <td><?php if ((int)$n['id'] !== (int)$neg['id']): ?><form method="post" action="<?= e(url('negocios')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int)$n['id'] ?>"><button class="btn gris" name="accion" value="neg_entrar">Administrar</button></form><?php else: ?><small>actual</small><?php endif; ?></td></tr>
       <?php endforeach; ?></table></div>

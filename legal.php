@@ -13,6 +13,7 @@ $CORREO = lc_cfg('LEGAL_EMAIL', 'luis.nieves.ramos@icloud.com');
 $LUGAR = lc_cfg('LEGAL_LUGAR', 'Puerto Rico');
 $PRECIO = lc_cfg('PLAN_PRECIO', '$20 al mes');
 $VIGENTE = '11 de noviembre de 2026';
+$DIAS = LC_DIAS_PRUEBA;
 $p = ($_GET['p'] ?? '') === 'privacidad' ? 'privacidad' : 'terminos';
 $titulo = $p === 'privacidad' ? 'Política de privacidad' : 'Términos y condiciones';
 $mail = '<a href="mailto:' . e($CORREO) . '">' . e($CORREO) . '</a>';
@@ -36,16 +37,16 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <h1><?= e($titulo) ?></h1><p class="vig">Vigente desde el <?= e($VIGENTE) ?></p>
 
 <?php if ($p === 'terminos'): ?>
-<div class="clave"><b>Lo más importante:</b> puedes cancelar el plan Pro cuando quieras desde tu portal, en <b>Plan → Cancelar suscripción</b>. Al cancelar no se te vuelve a cobrar, y conservas Pro hasta el final del periodo que ya pagaste.</div>
+<div class="clave"><b>Lo más importante:</b> tienes <b><?= $DIAS ?> días de prueba gratis, sin tarjeta</b>. Al terminar, si no has añadido tu tarjeta, <b>tu cuenta se cierra</b> y tu página deja de recibir reservas hasta que pagues. Nunca te cobramos sin que tú añadas tu tarjeta, y puedes cancelar cuando quieras en <b>Plan → Cancelar suscripción</b>.</div>
 
 <h2>1. Quiénes somos y aceptación</h2>
 <p>LuniCitas (el “Servicio”) es una aplicación de reservas de citas que opera <?= e($QUIEN) ?> (“nosotros”), con sede en <?= e($LUGAR) ?>. Al crear una cuenta o usar el Servicio aceptas estos términos. Si los aceptas en nombre de un negocio, confirmas que tienes autoridad para obligarlo y que eres mayor de 18 años. Si no estás de acuerdo, no uses el Servicio.</p>
 
-<h2>2. El Servicio y los planes</h2>
+<h2>2. Prueba gratis y plan Pro</h2>
 <ul>
-  <li><b>Gratis:</b> página de reservas, agenda y 1 persona en el equipo, sin costo.</li>
-  <li><b>Prueba:</b> las cuentas nuevas reciben 14 días con todas las funciones, sin pedir tarjeta. Al terminar, la cuenta pasa sola al plan Gratis; no se cobra nada si no eliges Pro.</li>
-  <li><b>Pro:</b> <?= e($PRECIO) ?> (USD), con equipo sin límite, recordatorios y análisis.</li>
+  <li><b>Prueba gratis:</b> cada negocio nuevo recibe <b><?= $DIAS ?> días</b> con todas las funciones, sin pedir tarjeta. La prueba es una sola vez por negocio.</li>
+  <li><b>Al terminar la prueba:</b> si no has añadido tu tarjeta, <b>la aplicación se cierra para tu negocio</b>: solo podrás entrar a la pantalla de pago, tu página de reservas dejará de aceptar citas y no se enviarán recordatorios. Te avisamos dentro del portal durante la prueba. Tus datos se conservan según la Política de privacidad, y al pagar todo vuelve como estaba.</li>
+  <li><b>Pro:</b> <?= e($PRECIO) ?> (USD), con todas las funciones.</li>
 </ul>
 <p>Podemos mejorar, cambiar o retirar funciones. Si un cambio te quita algo importante que ya pagaste, te avisaremos con antelación razonable.</p>
 
@@ -56,15 +57,15 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
   <li>Si pasas a Pro durante la prueba, el primer cobro se hace el día en que termina la prueba.</li>
   <li>Los precios no incluyen impuestos, que se añadirán cuando la ley lo exija.</li>
   <li>Si cambiamos el precio, te avisaremos por correo al menos 30 días antes; el nuevo precio se aplica a partir de la siguiente renovación. Si no estás de acuerdo, puedes cancelar antes.</li>
-  <li>Si un cobro falla, Stripe lo reintentará durante unos días y te pediremos actualizar la tarjeta. Si no se logra cobrar, la cuenta pasa al plan Gratis; tus datos y citas se conservan.</li>
+  <li>Si un cobro falla, Stripe lo reintentará durante unos días y te pediremos actualizar la tarjeta. Si no se logra cobrar, la cuenta se cierra igual que al terminar la prueba, hasta que pagues.</li>
 </ul>
 
 <h2>4. Cancelación y reembolsos</h2>
 <ul>
   <li>Puedes cancelar <b>en cualquier momento, sin penalidad</b>, desde <b>Plan → Cancelar suscripción</b> en tu portal o desde “Administrar pago”. También puedes escribirnos a <?= $mail ?> y la cancelaremos por ti.</li>
-  <li>Al cancelar, Stripe <b>deja de cobrarte</b>: no habrá más renovaciones. Conservas Pro hasta el final del periodo ya pagado y luego la cuenta pasa al plan Gratis.</li>
+  <li>Al cancelar, Stripe <b>deja de cobrarte</b>: no habrá más renovaciones. Conservas Pro hasta el final del periodo ya pagado y luego la cuenta se cierra.</li>
   <li>Puedes deshacer la cancelación antes de que termine el periodo con el botón “Seguir con Pro”.</li>
-  <li>Los periodos ya pagados no se reembolsan de forma parcial, salvo que la ley aplicable lo exija o que hayamos cometido un error de cobro. Si crees que hubo un cobro indebido, escríbenos dentro de los 30 días siguientes y lo revisaremos.</li>
+  <li>Los pagos no son reembolsables, tampoco de forma parcial, salvo que la ley aplicable lo exija. Si crees que hubo un error de cobro, escríbenos dentro de los 30 días siguientes.</li>
   <li>Si pides borrar tu cuenta, cancelaremos primero cualquier suscripción activa.</li>
 </ul>
 
@@ -72,7 +73,8 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <ul>
   <li>Eres responsable de tu usuario y contraseña, y de todo lo que se haga con tu cuenta.</li>
   <li>Eres responsable de los datos de tus clientes que guardas en el Servicio, de tener permiso para usarlos y para contactarlos (por ejemplo, por WhatsApp), y de cumplir las leyes que te apliquen.</li>
-  <li>Eres el único responsable de los servicios que prestas a tus clientes, de tus precios, horarios, cancelaciones y de la atención de tus citas. Nosotros solo damos la herramienta.</li>
+  <li>Eres el único responsable de los servicios que prestas a tus clientes, de tus precios, horarios, cancelaciones y de la atención de tus citas. LuniCitas solo es una herramienta y no es parte de la relación entre tú y tus clientes.</li>
+  <li>Eres responsable de pagar a tiempo para mantener tu cuenta abierta, de avisar a tus clientes si dejas de usar el Servicio o si tu cuenta se cierra, y de descargar tus datos (Excel o PDF) mientras tu cuenta esté abierta.</li>
   <li>No puedes usar el Servicio para actividades ilegales, para enviar mensajes no deseados (spam), para suplantar a otros, ni para intentar dañar, sobrecargar o acceder sin permiso al Servicio.</li>
 </ul>
 
@@ -80,16 +82,16 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <p>El Servicio se ofrece <b>“tal cual” y “según disponibilidad”</b>. En la medida que lo permita la ley, no damos garantías de ningún tipo, expresas o implícitas, incluidas las de comerciabilidad, idoneidad para un fin concreto y no infracción. No garantizamos que el Servicio funcione sin interrupciones ni errores, ni que los recordatorios o mensajes lleguen siempre. Te recomendamos descargar tus datos con regularidad (Excel o PDF).</p>
 
 <h2>7. Limitación de responsabilidad</h2>
-<p>En la máxima medida que permita la ley, ni <?= e($QUIEN) ?> ni sus dueños, empleados o colaboradores serán responsables de daños indirectos, incidentales, especiales, consecuentes o punitivos, ni de pérdida de ganancias, ingresos, clientes, citas o datos, aunque se haya advertido de su posibilidad. Nuestra responsabilidad total por cualquier reclamación relacionada con el Servicio no superará <b>lo que nos hayas pagado en los 12 meses anteriores</b> a la reclamación, o <b>50 USD</b> si usas el plan Gratis. Algunas jurisdicciones no permiten ciertas limitaciones; en ese caso, se aplican solo en la medida permitida.</p>
+<p>En la máxima medida que permita la ley, ni LuniCitas ni <?= e($QUIEN) ?>, ni sus dueños, empleados o colaboradores, serán responsables de daños directos o indirectos, incidentales, especiales, consecuentes o punitivos, ni de pérdida de ganancias, ingresos, clientes, citas o datos, incluidos los que resulten de <b>el cierre de tu cuenta al terminar la prueba, por falta de pago o por cancelación</b>, de fallos del Servicio, de Stripe, del alojamiento o de WhatsApp, o de citas que tus clientes no puedan hacer, aunque se haya advertido de su posibilidad. Si aun así la ley nos hiciera responsables, nuestra responsabilidad total no superará <b>lo que nos hayas pagado en los 3 meses anteriores</b> a la reclamación, o <b>0 USD</b> si no has pagado nada. Algunas jurisdicciones no permiten ciertas limitaciones; en ese caso, se aplican solo en la medida permitida.</p>
 
 <h2>8. Indemnización</h2>
-<p>Aceptas defender e indemnizar a <?= e($QUIEN) ?> frente a reclamaciones de terceros (incluidos tus clientes) que surjan de tu uso del Servicio, de los datos que subas o de que incumplas estos términos o la ley.</p>
+<p>Aceptas defender, indemnizar y mantener libre de responsabilidad a LuniCitas y a <?= e($QUIEN) ?> frente a reclamaciones, daños, multas y gastos (incluidos honorarios de abogados) de terceros, incluidos tus clientes, que surjan de tu negocio, de tu uso del Servicio, del cierre de tu cuenta, de los datos que subas o de que incumplas estos términos o la ley.</p>
 
 <h2>9. Servicios de terceros</h2>
 <p>El Servicio usa proveedores como Stripe (pagos), nuestro proveedor de alojamiento web y, si los activas, WhatsApp de Meta (recordatorios). Su funcionamiento se rige por sus propios términos y no somos responsables de sus fallos.</p>
 
 <h2>10. Suspensión y cierre</h2>
-<p>Podemos suspender o cerrar una cuenta que incumpla estos términos, que ponga en riesgo el Servicio o a otros usuarios, o cuando la ley nos lo exija. Si cerramos una cuenta Pro sin que hayas incumplido nada, te devolveremos la parte no usada del periodo pagado. Tú puedes dejar de usar el Servicio cuando quieras.</p>
+<p>La cuenta se cierra sola al terminar la prueba sin tarjeta, cuando no se logra cobrar o al terminar una suscripción cancelada. También podemos suspender o cerrar una cuenta, con o sin aviso, si incumple estos términos, pone en riesgo el Servicio o a otros usuarios, o cuando la ley lo exija. Tú puedes dejar de usar el Servicio cuando quieras.</p>
 
 <h2>11. Código abierto</h2>
 <p>El programa de LuniCitas es de código abierto bajo la licencia <a href="https://github.com/luisnieves10/lunicitas/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a>. Estos términos regulan el uso del Servicio en línea que nosotros operamos, no la licencia del código.</p>
@@ -142,7 +144,7 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <p>Los datos pueden guardarse en servidores fuera de tu país, con las protecciones que exige la ley.</p>
 
 <h2>5. Cuánto tiempo los guardamos</h2>
-<p>Mientras la cuenta del negocio esté activa. Si un negocio pide borrar su cuenta, borramos sus datos y los de sus citas en un máximo de 30 días, salvo lo que la ley nos obligue a conservar (por ejemplo, registros de pagos). Las copias de seguridad se eliminan en su ciclo normal.</p>
+<p>Mientras la cuenta del negocio exista. Si la cuenta se cierra (al terminar la prueba, por falta de pago o por cancelación), guardamos los datos hasta 90 días para que el negocio pueda volver; después podemos borrarlos sin más aviso. Si un negocio pide borrar su cuenta, borramos sus datos y los de sus citas en un máximo de 30 días, salvo lo que la ley nos obligue a conservar (por ejemplo, registros de pagos). Las copias de seguridad se eliminan en su ciclo normal.</p>
 
 <h2>6. Tus derechos</h2>
 <p>Puedes pedir ver, corregir, descargar o borrar tus datos, o oponerte a algún uso. Los negocios pueden hacer casi todo desde su portal. Si reservaste una cita, pídeselo primero al negocio; si no te responde, escríbenos a <?= $mail ?> y te ayudaremos. Respondemos en un máximo de 30 días.</p>

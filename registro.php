@@ -1,5 +1,5 @@
 <?php
-// LuniCitas — registro de negocios nuevos (14 días de prueba). Licencia AGPL-3.0
+// LuniCitas — registro de negocios nuevos (prueba de LC_DIAS_PRUEBA días). Licencia AGPL-3.0
 require __DIR__ . '/lib.php';
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
@@ -40,7 +40,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($base) < 3) $base .= '-lc';
     $slug = $base; $n = 2;
     $chk = $db->prepare('SELECT COUNT(*) FROM negocios WHERE slug = ?');
-    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy'], true)) break; $slug = $base . '-' . $n++; }
+    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio'], true)) break; $slug = $base . '-' . $n++; }
 
     $id = lc_crear_negocio($db, $nombre, $tipo, $slug, $usuario, $_POST['clave'], $persona);
     $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ?, email = ?, terminos_aceptados = NOW() WHERE id = ?")
@@ -49,7 +49,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     session_regenerate_id(true);
     $_SESSION['neg'] = $id; $_SESSION['super'] = false;
-    $_SESSION['aviso'] = '¡Bienvenido a LuniCitas! Tienes ' . LC_DIAS_PRUEBA . ' días de prueba con todo incluido. Revisa tu horario y servicios, y comparte tu enlace. Para volver a entrar usa ' . ($_SERVER['HTTP_HOST'] ?? '') . '/entrar';
+    $_SESSION['aviso'] = '¡Bienvenido a LuniCitas! Tienes ' . LC_DIAS_PRUEBA . ' días de prueba con todo incluido; después añade tu tarjeta en Plan para seguir. Revisa tu horario y servicios, y comparte tu enlace. Para volver a entrar usa ' . ($_SERVER['HTTP_HOST'] ?? '') . '/entrar';
     header('Location: admin.php?v=negocio'); exit;
   }
 }
@@ -57,7 +57,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Crea tu cuenta – LuniCitas</title><link rel="icon" href="logo.svg?v=3">
-<meta name="description" content="Reservas en línea para barberías, salones y centros de estética. Prueba gratis 14 días.">
+<meta name="description" content="Reservas en línea para barberías, salones y centros de estética. Prueba gratis <?= LC_DIAS_PRUEBA ?> días, sin tarjeta.">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:Poppins,sans-serif;background:#f7f7fb;color:#1d1b2e;display:flex;justify-content:center;padding:18px}
@@ -88,7 +88,7 @@ input:focus,select:focus{border-color:#7b5cff;outline:none}
       <li>✅ <b><?= LC_DIAS_PRUEBA ?> días gratis</b> con todo incluido, sin tarjeta</li>
       <li>✅ Tu propio enlace para Instagram y WhatsApp</li>
       <li>✅ Recordatorios por WhatsApp para que no falten</li>
-      <li>✅ Después sigue gratis con 1 persona, o pasa a Pro</li>
+      <li>✅ Después, <?= e(lc_cfg('PLAN_PRECIO', '$20 al mes')) ?>. Si no añades tu tarjeta, la cuenta se cierra sola: <b>nunca te cobramos sin tu permiso</b></li>
     </ul>
   </div>
   <div class="box">

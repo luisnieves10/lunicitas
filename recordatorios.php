@@ -21,6 +21,7 @@ $plantilla = lc_cfg('WA_PLANTILLA', 'recordatorio_cita'); $idioma = lc_cfg('WA_I
 
 $enviados = 0;
 foreach ($db->query('SELECT * FROM negocios WHERE activo = 1')->fetchAll() as $neg) {
+  if (!lc_es_pro($neg)) continue; // cuenta cerrada por falta de pago
   $manana = lc_ahora($neg)->modify('+1 day')->format('Y-m-d');
   $q = $db->prepare('SELECT * FROM citas WHERE negocio_id = ? AND fecha = ? AND recordado = 0');
   $q->execute([$neg['id'], $manana]);

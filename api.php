@@ -12,14 +12,16 @@ $entrada = $_SERVER['REQUEST_METHOD'] === 'POST' ? (json_decode(file_get_content
 $neg = lc_negocio($db, preg_replace('/[^a-z0-9-]/', '', (string)($entrada['n'] ?? '')));
 if (!$neg) responder(404, ['error' => 'Negocio no encontrado']);
 date_default_timezone_set($neg['zona']);
+// Cuenta cerrada (prueba vencida sin pago): se muestra el negocio, pero no se aceptan reservas.
+$suspendido = !lc_es_pro($neg);
+if ($suspendido && ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['fecha']))) responder(403, ['error' => 'suspendido']);
 
 function servicio($db, $neg, $id) {
   $q = $db->prepare('SELECT * FROM servicios WHERE id = ? AND negocio_id = ? AND activo = 1'); $q->execute([(int)$id, $neg['id']]);
   return $q->fetch() ?: null;
 }
 function equipoActivo($db, $neg, $lock = false) {
-  $limite = lc_es_pro($neg) ? '' : ' LIMIT 1'; // plan gratis: una sola persona
-  $q = $db->prepare('SELECT id, nombre FROM equipo WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id' . $limite . ($lock ? ' FOR UPDATE' : ''));
+  $q = $db->prepare('SELECT id, nombre FROM equipo WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id' . ($lock ? ' FOR UPDATE' : ''));
   $q->execute([$neg['id']]);
   return $q->fetchAll(PDO::FETCH_KEY_PAIR);
 }
@@ -41,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   $q = $db->prepare('SELECT id, nombre, duracion, precio, foto FROM servicios WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id');
   $q->execute([$neg['id']]); $servicios = $q->fetchAll();
   foreach ($servicios as &$s) { $s['id'] = (int)$s['id']; $s['duracion'] = (int)$s['duracion']; $s['precio'] = (float)$s['precio']; } unset($s);
-  $q = $db->prepare('SELECT id, nombre, especialidad, foto FROM equipo WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id' . (lc_es_pro($neg) ? '' : ' LIMIT 1'));
+  $q = $db->prepare('SELECT id, nombre, especialidad, foto FROM equipo WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id');
   $q->execute([$neg['id']]); $equipo = $q->fetchAll();
   foreach ($equipo as &$m) $m['id'] = (int)$m['id']; unset($m);
   $q = $db->prepare('SELECT fecha FROM dias_libres WHERE negocio_id = ? AND equipo_id IS NULL AND fecha >= CURDATE()');
@@ -52,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     'servicios' => $servicios, 'equipo' => $equipo,
     'cerrado' => $q->fetchAll(PDO::FETCH_COLUMN),
     'registro' => lc_registro_abierto($db),
+    'suspendido' => $suspendido,
   ]);
 }
 

@@ -2,9 +2,9 @@
 // LuniCitas — funciones compartidas por api.php, admin.php, install.php y recordatorios.php
 // Licencia AGPL-3.0
 
-const LC_VERSION_BD = 5;
+const LC_VERSION_BD = 6;
 const LC_STRIPE_VERSION = '2026-10-28.endive'; // versión fija de la API de Stripe
-const LC_DIAS_PRUEBA = 14;
+const LC_DIAS_PRUEBA = 3; // días de prueba gratis; después la cuenta se cierra hasta que pague
 const LC_TIPOS = ['barberia' => 'Barbería', 'salon' => 'Salón de belleza', 'estetica' => 'Estética / spa'];
 const LC_PERSONAL = ['barberia' => 'Barbero', 'salon' => 'Estilista', 'estetica' => 'Especialista'];
 
@@ -129,6 +129,12 @@ function lc_migrar($db) {
       $db->prepare('UPDATE citas SET duracion = ?, precio = ? WHERE servicio = ? AND precio = 0')->execute([$d, $p, $n]);
     }
   }
+  // Versión 6: ya no hay plan gratis para siempre. Los negocios que estaban en gratis o con la prueba vencida
+  // reciben 3 días de aviso antes de que su cuenta se cierre.
+  if ($ver >= 3 && $ver < 6) {
+    $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ? WHERE plan = 'gratis' OR (plan = 'prueba' AND (prueba_hasta IS NULL OR prueba_hasta < CURDATE()))")
+       ->execute([date('Y-m-d', strtotime('+' . LC_DIAS_PRUEBA . ' days'))]);
+  }
   $db->prepare("REPLACE INTO lc_meta (k, v) VALUES ('version', ?)")->execute([LC_VERSION_BD]);
 }
 
@@ -225,15 +231,16 @@ function lc_crear_negocio($db, $nombre, $tipo, $slug, $usuario, $clave, $persona
 }
 
 // ── Planes ──────────────────────────────────────────────
-// gratis: 1 persona en el equipo, sin análisis ni recordatorios. prueba y pro: todo.
+// prueba (LC_DIAS_PRUEBA días) y pro: todo. Si no, la cuenta está cerrada: el dueño solo ve la pantalla de pago
+// y la página de reservas deja de aceptar citas. En la base de datos, plan = 'gratis' significa cerrada.
 function lc_plan($neg) {
   $hoy = date('Y-m-d');
   if (($neg['plan'] ?? 'pro') === 'pro' && (empty($neg['pagado_hasta']) || $neg['pagado_hasta'] >= $hoy)) return ['clave' => 'pro', 'dias' => null];
   if (($neg['plan'] ?? '') === 'prueba' && !empty($neg['prueba_hasta']) && $neg['prueba_hasta'] >= $hoy)
     return ['clave' => 'prueba', 'dias' => max(1, (int)round((strtotime($neg['prueba_hasta']) - strtotime($hoy)) / 86400))];
-  return ['clave' => 'gratis', 'dias' => null];
+  return ['clave' => 'cerrado', 'dias' => null];
 }
-function lc_es_pro($neg) { return lc_plan($neg)['clave'] !== 'gratis'; }
+function lc_es_pro($neg) { return lc_plan($neg)['clave'] !== 'cerrado'; } // cuenta abierta (prueba o pro)
 
 function lc_meta($db, $k, $defecto = null) {
   $q = $db->prepare('SELECT v FROM lc_meta WHERE k = ?'); $q->execute([$k]); $v = $q->fetchColumn();

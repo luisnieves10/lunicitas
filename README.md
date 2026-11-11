@@ -29,8 +29,9 @@ Sencilla, bonita y pensada para el celular. En español, inglés y portugués.</
 - Tipo de negocio: barbería, salón de belleza o estética. Los textos se adaptan (barbero, estilista, especialista).
 
 **Planes y registro (para ofrecerla como servicio)**
-- Página `registro.php`: cualquier negocio crea su cuenta solo, con 14 días de prueba con todo incluido.
-- Plan **Gratis** (1 persona, sin recordatorios ni análisis) y plan **Pro** (todo). Al terminar la prueba, la cuenta pasa sola a Gratis y sigue recibiendo reservas.
+- Página `registro.php`: cualquier negocio crea su cuenta solo, con 3 días de prueba con todo incluido y sin tarjeta (`LC_DIAS_PRUEBA` en `lib.php`).
+- Plan **Pro** con todo. Al terminar la prueba, si el negocio no añadió su tarjeta, la cuenta se cierra: el dueño solo ve la pantalla de pago y su página deja de aceptar reservas. Al pagar, todo vuelve como estaba.
+- La página principal (`inicio.php`) presenta la app y lleva al registro cuando el registro está abierto; si no, muestra tu página de reservas.
 - Cobro mensual con **Stripe**, listo para activar: pago, renovación, cancelación y avisos automáticos (`stripe.php`).
 - Desde la pestaña Negocios abres o cierras el registro público y cambias el plan de cualquier negocio a mano.
 
