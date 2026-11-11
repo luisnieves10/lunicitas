@@ -55,16 +55,19 @@ Si instalaste desde Git, cada actualización llega con un *pull* (o sola, si act
 
 ### Cobrar con Stripe (opcional)
 
-1. Crea tu cuenta en [stripe.com](https://dashboard.stripe.com/register) y un producto “LuniCitas Pro” con precio mensual. Copia su ID (`price_…`).
-2. En Stripe → Desarrolladores → Webhooks, añade `https://TU-DOMINIO/stripe.php` con los eventos `checkout.session.completed`, `customer.subscription.updated` y `customer.subscription.deleted`. Copia el secreto (`whsec_…`).
-3. Añade a `config.php`:
+1. Crea tu cuenta en [stripe.com](https://dashboard.stripe.com/register) y, para probar, un [sandbox](https://docs.stripe.com/sandboxes). Crea un producto “LuniCitas Pro” con precio mensual y copia su ID (`price_…`).
+2. En Desarrolladores → Claves de API, crea una **clave restringida** (`rk_…`), más segura que la secreta: escritura en *Checkout Sessions*, *Customer portal* y *Customers*; lectura en *Subscriptions* y *Charges*.
+3. En Desarrolladores → Webhooks, añade `https://TU-DOMINIO/stripe.php` con los eventos `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `charge.dispute.created` y `radar.early_fraud_warning.created`. Copia el secreto (`whsec_…`).
+4. Añade a `config.php` (nunca lo subas a GitHub):
    ```php
-   $STRIPE_SECRET = 'sk_test_…';
+   $STRIPE_SECRET = 'rk_test_…';
    $STRIPE_PRICE = 'price_…';
    $STRIPE_WEBHOOK_SECRET = 'whsec_…';
    $PLAN_PRECIO = '$20 al mes';
    ```
-4. Prueba con una tarjeta de prueba de Stripe y luego cambia a las claves reales.
+5. Prueba con la tarjeta `4242 4242 4242 4242`. Cuando todo funcione, repite los pasos 2 y 3 en modo real (`rk_live_…` y un webhook real con su propio secreto).
+
+Cómo funciona: si un negocio en prueba pasa a Pro, no se le cobra hasta que termine la prueba. Si un cobro falla, sigue en Pro mientras Stripe reintenta y el portal le pide actualizar la tarjeta. Cada aviso de Stripe se comprueba con su firma y se vuelve a consultar la suscripción, así que da igual si llegan repetidos o desordenados. En Stripe → Configuración → Facturación, activa los *Smart Retries* y los correos de pago fallido.
 
 Las instalaciones nuevas empiezan con el registro público cerrado y todos los negocios en Pro: si la usas solo para tu negocio, no tienes que configurar nada de esto.
 

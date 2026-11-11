@@ -2,7 +2,8 @@
 // LuniCitas — funciones compartidas por api.php, admin.php, install.php y recordatorios.php
 // Licencia AGPL-3.0
 
-const LC_VERSION_BD = 3;
+const LC_VERSION_BD = 4;
+const LC_STRIPE_VERSION = '2026-10-28.endive'; // versión fija de la API de Stripe
 const LC_DIAS_PRUEBA = 14;
 const LC_TIPOS = ['barberia' => 'Barbería', 'salon' => 'Salón de belleza', 'estetica' => 'Estética / spa'];
 const LC_PERSONAL = ['barberia' => 'Barbero', 'salon' => 'Estilista', 'estetica' => 'Especialista'];
@@ -86,6 +87,7 @@ function lc_migrar($db) {
     'plan' => "VARCHAR(10) NOT NULL DEFAULT 'pro'", 'prueba_hasta' => 'DATE NULL', 'pagado_hasta' => 'DATE NULL',
     'email' => "VARCHAR(120) NOT NULL DEFAULT ''", 'stripe_cliente' => "VARCHAR(60) NOT NULL DEFAULT ''",
     'stripe_sub' => "VARCHAR(60) NOT NULL DEFAULT ''",
+    'stripe_estado' => "VARCHAR(20) NOT NULL DEFAULT ''", // versión 4: active, trialing, past_due…
   ];
   foreach ($planes as $c => $def) if (!lc_columna($db, 'negocios', $c)) $db->exec("ALTER TABLE negocios ADD $c $def");
 
@@ -251,10 +253,15 @@ function lc_base() {
 // ── Stripe (sin librerías). Se activa con $STRIPE_SECRET y $STRIPE_PRICE en config.php ──
 function lc_stripe_activo() { return (bool)lc_cfg('STRIPE_SECRET') && (bool)lc_cfg('STRIPE_PRICE'); }
 
-function lc_stripe($ruta, $params = []) {
-  $ch = curl_init('https://api.stripe.com/v1/' . $ruta);
-  curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25,
-    CURLOPT_USERPWD => lc_cfg('STRIPE_SECRET') . ':', CURLOPT_POSTFIELDS => http_build_query($params)]);
+// $STRIPE_SECRET puede ser una clave restringida (rk_…, recomendada) o secreta (sk_…).
+function lc_stripe($ruta, $params = [], $metodo = 'POST') {
+  $url = 'https://api.stripe.com/v1/' . $ruta;
+  if ($metodo === 'GET' && $params) $url .= '?' . http_build_query($params);
+  $ch = curl_init($url);
+  $op = [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25, CURLOPT_USERPWD => lc_cfg('STRIPE_SECRET') . ':',
+    CURLOPT_HTTPHEADER => ['Stripe-Version: ' . LC_STRIPE_VERSION]];
+  if ($metodo === 'POST') $op += [CURLOPT_POST => true, CURLOPT_POSTFIELDS => http_build_query($params)];
+  curl_setopt_array($ch, $op);
   $r = json_decode((string)curl_exec($ch), true); curl_close($ch);
   return is_array($r) ? $r : ['error' => ['message' => 'Sin respuesta de Stripe']];
 }

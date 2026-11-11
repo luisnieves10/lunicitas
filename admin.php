@@ -230,11 +230,21 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
   // Pagos con Stripe
   if ($a === 'pagar' && lc_stripe_activo()) {
+    // Ya tiene una suscripción viva: se administra en el portal, nunca se crea una segunda.
+    if ($neg['stripe_sub'] && in_array($neg['stripe_estado'], ['active', 'trialing', 'past_due'], true)) $a = 'portal';
+  }
+  if ($a === 'pagar' && lc_stripe_activo()) {
     $p = ['mode' => 'subscription', 'line_items' => [['price' => lc_cfg('STRIPE_PRICE'), 'quantity' => 1]],
           'client_reference_id' => $nid, 'metadata' => ['negocio' => $nid], 'subscription_data' => ['metadata' => ['negocio' => $nid]],
-          'allow_promotion_codes' => 'true', 'locale' => 'es',
+          'allow_promotion_codes' => 'true', 'locale' => 'es', 'integration_identifier' => 'lunicitas-pro-qhzvtmbk',
           'success_url' => lc_base() . '/admin.php?v=plan&pago=ok', 'cancel_url' => lc_base() . '/admin.php?v=plan'];
     if ($neg['stripe_cliente']) $p['customer'] = $neg['stripe_cliente']; elseif ($neg['email']) $p['customer_email'] = $neg['email'];
+    // Si está en la prueba gratis, conserva los días que le quedan: el primer cobro es al terminar la prueba.
+    // (Stripe pide que la prueba termine al menos 2 días después de hoy.)
+    if ($PLAN['clave'] === 'prueba' && $neg['prueba_hasta']) {
+      $finPrueba = strtotime($neg['prueba_hasta'] . ' 23:59:59');
+      if ($finPrueba > time() + 2 * 86400 + 3600) $p['subscription_data']['trial_end'] = $finPrueba;
+    }
     $r = lc_stripe('checkout/sessions', $p);
     if (!empty($r['url'])) { header('Location: ' . $r['url']); exit; }
     ir('plan', null, 'No se pudo abrir el pago: ' . ($r['error']['message'] ?? 'error desconocido'));
@@ -257,6 +267,7 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
        ->execute([$pl, $pl === 'prueba' ? date('Y-m-d', strtotime('+' . LC_DIAS_PRUEBA . ' days')) : null, $id]);
     ir('negocios', null, 'Plan cambiado.');
   }
+  if ($super && $a === 'alerta_ok') { lc_meta_set($db, 'stripe_alerta', ''); ir('plan', null, 'Aviso de Stripe borrado.'); }
   if ($super && $a === 'registro') { lc_meta_set($db, 'registro', lc_registro_abierto($db) ? '0' : '1'); ir('negocios', null, 'Registro público ' . (lc_registro_abierto($db) ? 'abierto.' : 'cerrado.')); }
   if ($super && $a === 'neg_entrar') { $_SESSION['neg'] = $id; ir('dia'); }
   if ($super && $a === 'neg_crear') {
@@ -625,10 +636,12 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
         <button class="btn" name="accion" value="clave">Cambiar</button></form></div>
 
   <?php elseif ($v === 'plan'): $precio = lc_cfg('PLAN_PRECIO', '$20 al mes'); $pagado = $neg['plan'] === 'pro' && $neg['stripe_sub']; ?>
+    <?php if ($neg['stripe_estado'] === 'past_due'): ?><div class="alerta">⚠️ No pudimos cobrar tu último pago. Stripe lo volverá a intentar; para no perder el plan Pro, toca <b>Administrar pago</b> y actualiza tu tarjeta.</div><?php endif; ?>
+    <?php if ($super && ($al = lc_meta($db, 'stripe_alerta'))): ?><div class="alerta">Stripe: <?= e($al) ?>. Respóndelo en el Dashboard de Stripe (Pagos → Disputas o Radar). <form method="post" action="<?= e(url('plan')) ?>" style="display:inline"><?= $csrf ?><button class="btn gris" name="accion" value="alerta_ok" style="padding:4px 10px;font-size:12px">Ya lo revisé</button></form></div><?php endif; ?>
     <?php if (($_GET['pago'] ?? '') === 'ok'): ?><div class="aviso">¡Gracias! Stripe está confirmando tu pago. En unos segundos tu plan aparecerá como Pro; si no, recarga esta página.</div><?php endif; ?>
     <div class="box"><h3>Tu plan: <?= e($PLAN_NOMBRE[$PLAN['clave']]) ?></h3>
       <p style="font-size:14px;color:#6b6980">
-      <?php if ($PLAN['clave'] === 'prueba'): ?>Te quedan <b><?= $PLAN['dias'] ?> días</b> de prueba con todo incluido. Al terminar, tu cuenta sigue funcionando en el plan gratis con 1 persona, salvo que pases a Pro.
+      <?php if ($PLAN['clave'] === 'prueba'): ?>Te quedan <b><?= $PLAN['dias'] ?> días</b> de prueba con todo incluido. Al terminar, tu cuenta sigue funcionando en el plan gratis con 1 persona, salvo que pases a Pro. Si pasas a Pro ahora, no se te cobra hasta que termine la prueba.
       <?php elseif ($PLAN['clave'] === 'pro'): ?><?= $pagado ? 'Tu suscripción está activa' . ($neg['pagado_hasta'] ? ' y se renueva cerca del ' . e(date('j/n/Y', strtotime($neg['pagado_hasta']))) : '') . '.' : 'Tienes todas las funciones activas.' ?>
       <?php else: ?>Tu negocio sigue recibiendo reservas con 1 persona. Pasa a Pro para todo el equipo, recordatorios y análisis.<?php endif; ?></p></div>
     <div class="grid2">
@@ -651,12 +664,13 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
       <ol style="font-size:14px;line-height:1.8;padding-left:18px">
         <li>Crea tu cuenta en <a href="https://dashboard.stripe.com/register" target="_blank" rel="noopener">stripe.com</a>.</li>
         <li>En Stripe, crea un producto “LuniCitas Pro” con precio mensual y copia su ID de precio (<code>price_…</code>).</li>
-        <li>En Desarrolladores → Webhooks, añade el destino <code><?= e($base) ?>/stripe.php</code> con los eventos <code>checkout.session.completed</code>, <code>customer.subscription.updated</code> y <code>customer.subscription.deleted</code>. Copia su secreto (<code>whsec_…</code>).</li>
-        <li>Añade a <b>config.php</b> (fuera de public_html):<pre style="background:#1d1b2e;color:#e5e5f0;padding:10px;border-radius:10px;font-size:12px;overflow:auto;margin-top:6px">$STRIPE_SECRET = 'sk_test_…';
+        <li>En Desarrolladores → Claves de API, crea una <b>clave restringida</b> (<code>rk_…</code>) con permiso de escritura en <i>Checkout Sessions</i>, <i>Customer portal</i> y <i>Customers</i>, y de lectura en <i>Subscriptions</i> y <i>Charges</i>. Es más segura que la clave secreta.</li>
+        <li>En Desarrolladores → Webhooks, añade el destino <code><?= e($base) ?>/stripe.php</code> con los eventos <code>checkout.session.completed</code>, <code>customer.subscription.created</code>, <code>customer.subscription.updated</code>, <code>customer.subscription.deleted</code>, <code>invoice.paid</code>, <code>invoice.payment_failed</code>, <code>charge.dispute.created</code> y <code>radar.early_fraud_warning.created</code>. Copia su secreto (<code>whsec_…</code>).</li>
+        <li>Añade a <b>config.php</b> (fuera de public_html):<pre style="background:#1d1b2e;color:#e5e5f0;padding:10px;border-radius:10px;font-size:12px;overflow:auto;margin-top:6px">$STRIPE_SECRET = 'rk_test_…';
 $STRIPE_PRICE = 'price_…';
 $STRIPE_WEBHOOK_SECRET = 'whsec_…';
 $PLAN_PRECIO = '$20 al mes';</pre></li>
-        <li>Prueba con la tarjeta de prueba de Stripe y, cuando todo funcione, cambia a las claves reales (<code>sk_live_…</code>).</li>
+        <li>Prueba con la tarjeta de prueba de Stripe y, cuando todo funcione, crea la misma clave restringida en modo real (<code>rk_live_…</code>) y un webhook real con su propio secreto.</li>
       </ol></div>
     <?php endif; ?>
 
