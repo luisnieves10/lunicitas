@@ -24,7 +24,7 @@ $MC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 $ZONAS = ['America/Puerto_Rico','America/Santo_Domingo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
   'America/Mexico_City','America/Guatemala','America/Panama','America/Bogota','America/Lima','America/Caracas','America/La_Paz',
   'America/Santiago','America/Argentina/Buenos_Aires','America/Sao_Paulo','Europe/Madrid','Europe/Lisbon'];
-$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar'];
+$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal'];
 $ip = lc_ip();
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $super = !empty($_SESSION['super']);
@@ -237,6 +237,8 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $p = ['mode' => 'subscription', 'line_items' => [['price' => lc_cfg('STRIPE_PRICE'), 'quantity' => 1]],
           'client_reference_id' => $nid, 'metadata' => ['negocio' => $nid], 'subscription_data' => ['metadata' => ['negocio' => $nid]],
           'allow_promotion_codes' => 'true', 'locale' => 'es', 'integration_identifier' => 'lunicitas-pro-qhzvtmbk',
+          'custom_text' => ['submit' => ['message' => 'Se renueva cada mes hasta que canceles. Cancela cuando quieras en LuniCitas → Plan; no se te volverá a cobrar. '
+            . 'Al pagar aceptas los Términos (' . lc_base() . '/legal.php?p=terminos).']],
           'success_url' => lc_base() . '/admin.php?v=plan&pago=ok', 'cancel_url' => lc_base() . '/admin.php?v=plan'];
     if ($neg['stripe_cliente']) $p['customer'] = $neg['stripe_cliente']; elseif ($neg['email']) $p['customer_email'] = $neg['email'];
     // Si está en la prueba gratis, conserva los días que le quedan: el primer cobro es al terminar la prueba.
@@ -248,6 +250,17 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $r = lc_stripe('checkout/sessions', $p);
     if (!empty($r['url'])) { header('Location: ' . $r['url']); exit; }
     ir('plan', null, 'No se pudo abrir el pago: ' . ($r['error']['message'] ?? 'error desconocido'));
+  }
+  // Cancelar desde LuniCitas, sin depender del portal: Stripe no vuelve a cobrar y el Pro dura hasta el fin del periodo pagado.
+  if (in_array($a, ['cancelar', 'reactivar'], true) && lc_stripe_activo() && $neg['stripe_sub']) {
+    $r = lc_stripe('subscriptions/' . rawurlencode($neg['stripe_sub']), ['cancel_at_period_end' => $a === 'cancelar' ? 'true' : 'false']);
+    if (!empty($r['error'])) ir('plan', null, 'Stripe no respondió: ' . $r['error']['message'] . '. Escríbenos y lo cancelamos por ti.');
+    $finSub = $r['cancel_at'] ?? ($r['items']['data'][0]['current_period_end'] ?? null);
+    $db->prepare('UPDATE negocios SET stripe_cancela = ? WHERE id = ?')
+       ->execute([$a === 'cancelar' && $finSub ? date('Y-m-d', (int)$finSub) : null, $nid]);
+    ir('plan', null, $a === 'cancelar'
+      ? 'Suscripción cancelada. No se te volverá a cobrar; tienes Pro hasta el ' . ($finSub ? date('j/n/Y', (int)$finSub) : 'fin del periodo pagado') . '.'
+      : '¡Listo! Tu plan Pro sigue activo y se renovará normalmente.');
   }
   if ($a === 'portal' && lc_stripe_activo() && $neg['stripe_cliente']) {
     $r = lc_stripe('billing_portal/sessions', ['customer' => $neg['stripe_cliente'], 'return_url' => lc_base() . '/admin.php?v=plan', 'locale' => 'es']);
@@ -642,16 +655,20 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
     <div class="box"><h3>Tu plan: <?= e($PLAN_NOMBRE[$PLAN['clave']]) ?></h3>
       <p style="font-size:14px;color:#6b6980">
       <?php if ($PLAN['clave'] === 'prueba'): ?>Te quedan <b><?= $PLAN['dias'] ?> días</b> de prueba con todo incluido. Al terminar, tu cuenta sigue funcionando en el plan gratis con 1 persona, salvo que pases a Pro. Si pasas a Pro ahora, no se te cobra hasta que termine la prueba.
-      <?php elseif ($PLAN['clave'] === 'pro'): ?><?= $pagado ? 'Tu suscripción está activa' . ($neg['pagado_hasta'] ? ' y se renueva cerca del ' . e(date('j/n/Y', strtotime($neg['pagado_hasta']))) : '') . '.' : 'Tienes todas las funciones activas.' ?>
+      <?php elseif ($PLAN['clave'] === 'pro' && $pagado && $neg['stripe_cancela']): ?>Cancelaste tu suscripción: <b>no se te volverá a cobrar</b>. Sigues con Pro hasta el <b><?= e(date('j/n/Y', strtotime($neg['stripe_cancela']))) ?></b> y después pasas al plan gratis, sin perder tus citas.
+      <?php elseif ($PLAN['clave'] === 'pro'): ?><?= $pagado ? 'Tu suscripción está activa' . ($neg['pagado_hasta'] ? ' y se renueva cerca del ' . e(date('j/n/Y', strtotime($neg['pagado_hasta']))) : '') . '. Puedes cancelarla cuando quieras.' : 'Tienes todas las funciones activas.' ?>
       <?php else: ?>Tu negocio sigue recibiendo reservas con 1 persona. Pasa a Pro para todo el equipo, recordatorios y análisis.<?php endif; ?></p></div>
     <div class="grid2">
       <div class="box"><h3>Gratis</h3><p class="price" style="font-size:22px">$0</p>
         <p style="font-size:14px;line-height:1.9">✓ Página de reservas y enlace propio<br>✓ Agenda día, semana y mes<br>✓ Servicios, horario y días libres<br>✓ 1 persona en el equipo<br><span style="color:#b9b7c9">✗ Recordatorios por WhatsApp<br>✗ Análisis, Excel y PDF</span></p></div>
       <div class="box" style="outline:2px solid #7b5cff"><h3>Pro</h3><p class="price" style="font-size:22px"><?= e($precio) ?></p>
-        <p style="font-size:14px;line-height:1.9">✓ Todo lo del plan gratis<br>✓ <b>Equipo sin límite</b><br>✓ Recordatorios por WhatsApp<br>✓ Análisis del mes, Excel y PDF<br>✓ Cancela cuando quieras</p>
+        <p style="font-size:14px;line-height:1.9">✓ Todo lo del plan gratis<br>✓ <b>Equipo sin límite</b><br>✓ Recordatorios por WhatsApp<br>✓ Análisis del mes, Excel y PDF<br>✓ Cancela cuando quieras, sin penalidad</p>
+        <p style="font-size:12px;color:#8a88a0;margin:-4px 0 10px">Se cobra cada mes por adelantado con Stripe. <a href="legal.php?p=terminos" target="_blank">Términos</a> · <a href="legal.php?p=privacidad" target="_blank">Privacidad</a></p>
         <?php if (lc_stripe_activo()): ?>
           <form method="post" action="<?= e(url('plan')) ?>"><?= $csrf ?>
-          <?php if ($pagado): ?><button class="btn gris" name="accion" value="portal" style="width:100%">Administrar pago o cancelar</button>
+          <?php if ($pagado): ?><button class="btn gris" name="accion" value="portal" style="width:100%">Administrar pago y recibos</button>
+            <?php if ($neg['stripe_cancela']): ?><button class="btn" name="accion" value="reactivar" style="width:100%;margin-top:8px">Seguir con Pro</button>
+            <?php else: ?><button class="btn gris" name="accion" value="cancelar" style="width:100%;margin-top:8px;color:#c0392b" onclick="return confirm('¿Cancelar tu suscripción? No se te volverá a cobrar y tendrás Pro hasta el final del periodo que ya pagaste.')">Cancelar suscripción</button><?php endif; ?>
           <?php elseif ($PLAN['clave'] !== 'pro' || $neg['plan'] !== 'pro'): ?><button class="btn" name="accion" value="pagar" style="width:100%">Pasar a Pro</button><?php endif; ?>
           </form>
         <?php elseif ($PLAN['clave'] !== 'pro'): ?><p style="font-size:13px;color:#8a88a0">El pago en línea estará disponible muy pronto.</p><?php endif; ?>
@@ -664,7 +681,7 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
       <ol style="font-size:14px;line-height:1.8;padding-left:18px">
         <li>Crea tu cuenta en <a href="https://dashboard.stripe.com/register" target="_blank" rel="noopener">stripe.com</a>.</li>
         <li>En Stripe, crea un producto “LuniCitas Pro” con precio mensual y copia su ID de precio (<code>price_…</code>).</li>
-        <li>En Desarrolladores → Claves de API, crea una <b>clave restringida</b> (<code>rk_…</code>) con permiso de escritura en <i>Checkout Sessions</i>, <i>Customer portal</i> y <i>Customers</i>, y de lectura en <i>Subscriptions</i> y <i>Charges</i>. Es más segura que la clave secreta.</li>
+        <li>En Desarrolladores → Claves de API, crea una <b>clave restringida</b> (<code>rk_…</code>) con permiso de escritura en <i>Checkout Sessions</i>, <i>Customer portal</i>, <i>Customers</i> y <i>Subscriptions</i>, y de lectura en <i>Charges</i>. Es más segura que la clave secreta.</li>
         <li>En Desarrolladores → Webhooks, añade el destino <code><?= e($base) ?>/stripe.php</code> con los eventos <code>checkout.session.completed</code>, <code>customer.subscription.created</code>, <code>customer.subscription.updated</code>, <code>customer.subscription.deleted</code>, <code>invoice.paid</code>, <code>invoice.payment_failed</code>, <code>charge.dispute.created</code> y <code>radar.early_fraud_warning.created</code>. Copia su secreto (<code>whsec_…</code>).</li>
         <li>Añade a <b>config.php</b> (fuera de public_html):<pre style="background:#1d1b2e;color:#e5e5f0;padding:10px;border-radius:10px;font-size:12px;overflow:auto;margin-top:6px">$STRIPE_SECRET = 'rk_test_…';
 $STRIPE_PRICE = 'price_…';
@@ -701,4 +718,5 @@ $PLAN_PRECIO = '$20 al mes';</pre></li>
         <button class="btn" name="accion" value="neg_crear">Crear negocio</button></form></div>
   <?php endif; ?>
 <?php endif; ?>
+<p style="text-align:center;font-size:12px;color:#a3a1b5;margin:20px 0" class="noprint"><a href="legal.php?p=terminos" target="_blank" style="color:#7b5cff">Términos</a> · <a href="legal.php?p=privacidad" target="_blank" style="color:#7b5cff">Privacidad</a></p>
 </div></body></html>

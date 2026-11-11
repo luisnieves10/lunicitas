@@ -2,7 +2,7 @@
 // LuniCitas — funciones compartidas por api.php, admin.php, install.php y recordatorios.php
 // Licencia AGPL-3.0
 
-const LC_VERSION_BD = 4;
+const LC_VERSION_BD = 5;
 const LC_STRIPE_VERSION = '2026-10-28.endive'; // versión fija de la API de Stripe
 const LC_DIAS_PRUEBA = 14;
 const LC_TIPOS = ['barberia' => 'Barbería', 'salon' => 'Salón de belleza', 'estetica' => 'Estética / spa'];
@@ -88,6 +88,8 @@ function lc_migrar($db) {
     'email' => "VARCHAR(120) NOT NULL DEFAULT ''", 'stripe_cliente' => "VARCHAR(60) NOT NULL DEFAULT ''",
     'stripe_sub' => "VARCHAR(60) NOT NULL DEFAULT ''",
     'stripe_estado' => "VARCHAR(20) NOT NULL DEFAULT ''", // versión 4: active, trialing, past_due…
+    'stripe_cancela' => 'DATE NULL',            // versión 5: día en que termina una suscripción cancelada
+    'terminos_aceptados' => 'DATETIME NULL',    // versión 5: cuándo aceptó los términos y la privacidad
   ];
   foreach ($planes as $c => $def) if (!lc_columna($db, 'negocios', $c)) $db->exec("ALTER TABLE negocios ADD $c $def");
 

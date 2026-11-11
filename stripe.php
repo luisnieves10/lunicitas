@@ -50,13 +50,16 @@ function sincronizar($db, $subId, $obj = []) {
   if (in_array($estado, ['active', 'trialing', 'past_due'], true)) {
     $fin = $sub['items']['data'][0]['current_period_end'] ?? ($sub['current_period_end'] ?? null);
     $hasta = $fin ? date('Y-m-d', (int)$fin + 3 * 86400) : date('Y-m-d', strtotime('+35 days')); // 3 días de gracia
-    $db->prepare("UPDATE negocios SET plan = 'pro', stripe_cliente = ?, stripe_sub = ?, stripe_estado = ?, pagado_hasta = ?, prueba_hasta = NULL WHERE id = ?")
-       ->execute([$cliente, $sub['id'], $estado, $hasta, $id]);
+    // Cancelada pero aún pagada: Stripe ya no cobrará más y la termina en cancel_at.
+    $cancelaEn = $sub['cancel_at'] ?? (!empty($sub['cancel_at_period_end']) ? $fin : null);
+    $cancela = $cancelaEn ? date('Y-m-d', (int)$cancelaEn) : null;
+    $db->prepare("UPDATE negocios SET plan = 'pro', stripe_cliente = ?, stripe_sub = ?, stripe_estado = ?, stripe_cancela = ?, pagado_hasta = ?, prueba_hasta = NULL WHERE id = ?")
+       ->execute([$cliente, $sub['id'], $estado, $cancela, $hasta, $id]);
     return [200, "Pro ($estado)"];
   }
   // canceled, unpaid, incomplete_expired…: pasa a gratis, pero solo si es la suscripción que tenemos guardada
   // (así una suscripción vieja cancelada no quita el Pro de una nueva).
-  $q = $db->prepare("UPDATE negocios SET plan = 'gratis', stripe_sub = '', stripe_estado = ?, pagado_hasta = NULL WHERE id = ? AND (stripe_sub = ? OR stripe_sub = '')");
+  $q = $db->prepare("UPDATE negocios SET plan = 'gratis', stripe_sub = '', stripe_estado = ?, stripe_cancela = NULL, pagado_hasta = NULL WHERE id = ? AND (stripe_sub = ? OR stripe_sub = '')");
   $q->execute([$estado, $id, $sub['id']]);
   return [200, $q->rowCount() ? "Pasó a gratis ($estado)" : 'Suscripción vieja, sin cambios'];
 }

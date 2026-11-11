@@ -40,10 +40,10 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($base) < 3) $base .= '-lc';
     $slug = $base; $n = 2;
     $chk = $db->prepare('SELECT COUNT(*) FROM negocios WHERE slug = ?');
-    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar'], true)) break; $slug = $base . '-' . $n++; }
+    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal'], true)) break; $slug = $base . '-' . $n++; }
 
     $id = lc_crear_negocio($db, $nombre, $tipo, $slug, $usuario, $_POST['clave'], $persona);
-    $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ?, email = ? WHERE id = ?")
+    $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ?, email = ?, terminos_aceptados = NOW() WHERE id = ?")
        ->execute([date('Y-m-d', strtotime('+' . LC_DIAS_PRUEBA . ' days')), $email, $id]);
     $db->prepare('INSERT INTO intentos (ip_hash) VALUES (?)')->execute([$ipReg]);
 
@@ -106,10 +106,10 @@ input:focus,select:focus{border-color:#7b5cff;outline:none}
       <label>Correo</label><input name="email" type="email" maxlength="120" value="<?= e($f['email'] ?? '') ?>" autocomplete="email" required>
       <label>Usuario para entrar</label><input name="usuario" maxlength="40" value="<?= e($f['usuario'] ?? '') ?>" autocomplete="username" pattern="[A-Za-z0-9._\-]{3,40}" required>
       <label>Contraseña (mínimo 8)</label><input name="clave" type="password" minlength="8" autocomplete="new-password" required>
-      <label class="ck"><input type="checkbox" name="acepto" value="1" <?= !empty($f['acepto']) ? 'checked' : '' ?> required> Acepto usar LuniCitas de forma responsable y guardar los datos de mis clientes con cuidado.</label>
+      <label class="ck"><input type="checkbox" name="acepto" value="1" <?= !empty($f['acepto']) ? 'checked' : '' ?> required> <span>Acepto los <a href="legal.php?p=terminos" target="_blank">Términos y condiciones</a> y la <a href="legal.php?p=privacidad" target="_blank">Política de privacidad</a>, y me comprometo a cuidar los datos de mis clientes.</span></label>
       <button class="btn">Crear mi cuenta gratis</button>
     </form>
   </div>
-  <p class="pie">LuniCitas es <a href="https://github.com/luisnieves10/lunicitas">código abierto</a>.</p>
+  <p class="pie">LuniCitas es <a href="https://github.com/luisnieves10/lunicitas">código abierto</a> · <a href="legal.php?p=terminos">Términos</a> · <a href="legal.php?p=privacidad">Privacidad</a></p>
 <?php endif; ?>
 </div></body></html>
