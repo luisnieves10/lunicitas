@@ -1,0 +1,27 @@
+# LuniCitas
+Options -Indexes
+DirectoryIndex index.html
+
+# Archivos que nunca se deben ver desde el navegador
+<FilesMatch "^(config\.php|lib\.php|recordatorios\.php|\.git.*|README\.md)$">
+  Require all denied
+</FilesMatch>
+
+# El logo y los iconos se revisan siempre, para que el navegador no muestre uno viejo
+<IfModule mod_headers.c>
+  <FilesMatch "\.(svg|ico)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+# Enlace de cada negocio: lunicitas.com/mi-barberia
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^\.git - [F,L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([a-z0-9-]{3,40})/$ $1 [R=301,L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([a-z0-9-]{3,40})$ index.html [L]
+</IfModule>

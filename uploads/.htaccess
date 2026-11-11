@@ -1,0 +1,8 @@
+# Solo fotos: aquí nunca se ejecuta código
+Options -Indexes
+<FilesMatch "\.(?!(jpe?g|png|webp)$)[^.]+$">
+  Require all denied
+</FilesMatch>
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>

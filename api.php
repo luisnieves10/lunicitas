@@ -1,78 +1,95 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
-require __DIR__ . '/../config.php';
+require __DIR__ . '/lib.php';
 
-function responder($codigo, $datos) { http_response_code($codigo); echo json_encode($datos); exit; }
+function responder($codigo, $datos) { http_response_code($codigo); echo json_encode($datos, JSON_UNESCAPED_UNICODE); exit; }
 
-try {
-  $db = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_EMULATE_PREPARES => false,
-  ]);
-  $db->exec("CREATE TABLE IF NOT EXISTS citas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    servicio VARCHAR(60) NOT NULL,
-    barbero VARCHAR(40) NOT NULL,
-    fecha DATE NOT NULL,
-    hora VARCHAR(5) NOT NULL,
-    nombre VARCHAR(80) NOT NULL,
-    telefono VARCHAR(20) NOT NULL,
-    ip_hash CHAR(64) NOT NULL,
-    creada TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY una_cita (barbero, fecha, hora)
-  ) CHARACTER SET utf8mb4");
-} catch (Exception $e) { responder(500, ['error' => 'No se pudo conectar']); }
+try { $db = lc_conectar(); } catch (Exception $e) { responder(500, ['error' => 'No se pudo conectar']); }
+if (!$db) responder(503, ['error' => 'instalar']);
 
-$SERVICIOS = ['Corte clásico','Corte + barba','Fade / degradado','Arreglo de barba'];
-$BARBEROS  = ['Carlos','Miguel','Andrés','Cualquiera'];
-$HORAS     = ['9:00','9:45','10:30','11:15','12:00','14:00','14:45','15:30','16:15','17:00','17:45','18:30'];
+$entrada = $_SERVER['REQUEST_METHOD'] === 'POST' ? (json_decode(file_get_contents('php://input'), true) ?: []) : $_GET;
+$neg = lc_negocio($db, preg_replace('/[^a-z0-9-]/', '', (string)($entrada['n'] ?? '')));
+if (!$neg) responder(404, ['error' => 'Negocio no encontrado']);
+date_default_timezone_set($neg['zona']);
 
-function fechaValida($f) {
-  $d = DateTime::createFromFormat('Y-m-d', $f);
-  if (!$d || $d->format('Y-m-d') !== $f) return false;
-  $hoy = new DateTime('today'); $max = (new DateTime('today'))->modify('+60 days');
-  return $d >= $hoy && $d <= $max;
+function servicio($db, $neg, $id) {
+  $q = $db->prepare('SELECT * FROM servicios WHERE id = ? AND negocio_id = ? AND activo = 1'); $q->execute([(int)$id, $neg['id']]);
+  return $q->fetch() ?: null;
+}
+function equipoActivo($db, $neg, $lock = false) {
+  $q = $db->prepare('SELECT id, nombre FROM equipo WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id' . ($lock ? ' FOR UPDATE' : ''));
+  $q->execute([$neg['id']]);
+  return $q->fetchAll(PDO::FETCH_KEY_PAIR);
 }
 
-// Horas ocupadas: api.php?fecha=2026-11-12&barbero=Carlos
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-  $fecha = $_GET['fecha'] ?? ''; $barbero = $_GET['barbero'] ?? '';
-  if (!fechaValida($fecha) || !in_array($barbero, $BARBEROS, true)) responder(400, ['error' => 'Datos no válidos']);
-  $q = $db->prepare('SELECT hora FROM citas WHERE fecha = ? AND barbero = ?');
-  $q->execute([$fecha, $barbero]);
-  responder(200, ['ocupadas' => $q->fetchAll(PDO::FETCH_COLUMN)]);
+  // Horas libres: api.php?n=slug&fecha=2026-11-12&servicio=3&equipo=2 (0 = cualquiera)
+  if (isset($_GET['fecha'])) {
+    $s = servicio($db, $neg, $_GET['servicio'] ?? 0);
+    $equipo = equipoActivo($db, $neg);
+    $eid = (int)($_GET['equipo'] ?? 0);
+    if (!$s || !lc_fecha_valida($neg, $_GET['fecha']) || ($eid && !isset($equipo[$eid]))) responder(400, ['error' => 'Datos no válidos']);
+    $libres = lc_disponibles($db, $neg, $_GET['fecha'], (int)$s['duracion'], $eid ? [$eid] : array_keys($equipo));
+    $todas = array_unique(array_merge([], ...array_values($libres)));
+    sort($todas);
+    responder(200, ['horas' => array_map('lc_hhmm', $todas)]);
+  }
+
+  // Información del negocio para pintar la página de reservas
+  $q = $db->prepare('SELECT id, nombre, duracion, precio, foto FROM servicios WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id');
+  $q->execute([$neg['id']]); $servicios = $q->fetchAll();
+  foreach ($servicios as &$s) { $s['id'] = (int)$s['id']; $s['duracion'] = (int)$s['duracion']; $s['precio'] = (float)$s['precio']; } unset($s);
+  $q = $db->prepare('SELECT id, nombre, especialidad, foto FROM equipo WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id');
+  $q->execute([$neg['id']]); $equipo = $q->fetchAll();
+  foreach ($equipo as &$m) $m['id'] = (int)$m['id']; unset($m);
+  $q = $db->prepare('SELECT fecha FROM dias_libres WHERE negocio_id = ? AND equipo_id IS NULL AND fecha >= CURDATE()');
+  $q->execute([$neg['id']]);
+  responder(200, [
+    'negocio' => array_intersect_key($neg, array_flip(['slug', 'nombre', 'tipo', 'direccion', 'telefono', 'descripcion', 'foto', 'moneda', 'horario'])),
+    'hoy' => lc_ahora($neg)->format('Y-m-d'),
+    'servicios' => $servicios, 'equipo' => $equipo,
+    'cerrado' => $q->fetchAll(PDO::FETCH_COLUMN),
+  ]);
 }
 
 // Nueva reserva
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $in = json_decode(file_get_contents('php://input'), true);
-  if (!is_array($in)) responder(400, ['error' => 'Datos no válidos']);
-  $servicio = $in['servicio'] ?? ''; $barbero = $in['barbero'] ?? '';
-  $fecha = $in['fecha'] ?? ''; $hora = $in['hora'] ?? '';
-  $nombre = trim(strip_tags($in['nombre'] ?? ''));
-  $telefono = preg_replace('/[^0-9+]/', '', $in['telefono'] ?? '');
+  $s = servicio($db, $neg, $entrada['servicio'] ?? 0);
+  $fecha = (string)($entrada['fecha'] ?? ''); $hora = lc_min($entrada['hora'] ?? '');
+  $eid = (int)($entrada['equipo'] ?? 0);
+  $nombre = trim(strip_tags((string)($entrada['nombre'] ?? '')));
+  $telefono = preg_replace('/[^0-9+]/', '', (string)($entrada['telefono'] ?? ''));
+  $idioma = in_array($entrada['idioma'] ?? '', ['es', 'en', 'pt'], true) ? $entrada['idioma'] : 'es';
 
-  if (!in_array($servicio, $SERVICIOS, true) || !in_array($barbero, $BARBEROS, true)
-      || !in_array($hora, $HORAS, true) || !fechaValida($fecha)
-      || mb_strlen($nombre) < 2 || mb_strlen($nombre) > 80
-      || strlen($telefono) < 7 || strlen($telefono) > 20) {
+  if (!$s || $hora === null || !lc_fecha_valida($neg, $fecha)
+      || mb_strlen($nombre) < 2 || mb_strlen($nombre) > 80 || strlen($telefono) < 7 || strlen($telefono) > 20) {
     responder(400, ['error' => 'Revisa los datos de tu reserva']);
   }
 
-  $ip = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . 'lunicitas');
+  $ip = lc_ip();
   $q = $db->prepare('SELECT COUNT(*) FROM citas WHERE ip_hash = ? AND creada > (NOW() - INTERVAL 1 HOUR)');
   $q->execute([$ip]);
   if ($q->fetchColumn() >= 5) responder(429, ['error' => 'Demasiadas reservas, intenta más tarde']);
 
   try {
-    $q = $db->prepare('INSERT INTO citas (servicio, barbero, fecha, hora, nombre, telefono, ip_hash) VALUES (?,?,?,?,?,?,?)');
-    $q->execute([$servicio, $barbero, $fecha, $hora, $nombre, $telefono, $ip]);
+    $db->beginTransaction();
+    $equipo = equipoActivo($db, $neg, true); // bloquea: dos reservas a la vez no pueden tomar la misma hora
+    if ($eid && !isset($equipo[$eid])) { $db->rollBack(); responder(400, ['error' => 'Revisa los datos de tu reserva']); }
+    $libres = lc_disponibles($db, $neg, $fecha, (int)$s['duracion'], $eid ? [$eid] : array_keys($equipo));
+    $elegido = null;
+    foreach ($libres as $id => $horas) if (in_array($hora, $horas, true)) { $elegido = $id; break; }
+    if (!$elegido) { $db->rollBack(); responder(409, ['error' => 'Esa hora acaba de ocuparse, elige otra']); }
+    $db->prepare('INSERT INTO citas (negocio_id, servicio, barbero, equipo_id, fecha, hora, duracion, precio, nombre, telefono, idioma, ip_hash)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+       ->execute([$neg['id'], $s['nombre'], $equipo[$elegido], $elegido, $fecha, lc_hhmm($hora), (int)$s['duracion'], $s['precio'],
+                  $nombre, $telefono, $idioma, $ip]);
+    $db->commit();
   } catch (PDOException $e) {
-    if ($e->getCode() == 23000) responder(409, ['error' => 'Esa hora acaba de ocuparse, elige otra']);
+    if ($db->inTransaction()) $db->rollBack();
     responder(500, ['error' => 'No se pudo guardar']);
   }
-  responder(201, ['ok' => true]);
+  responder(201, ['ok' => true, 'con' => $equipo[$elegido]]);
 }
 
 responder(405, ['error' => 'Método no permitido']);
