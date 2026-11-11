@@ -1,0 +1,2 @@
+# Solo los incluye admin.php: nunca se abren desde el navegador
+Require all denied

@@ -1,6 +1,7 @@
 <?php
 // LuniCitas — portal del dueño. Licencia AGPL-3.0
 require __DIR__ . '/lib.php';
+define('LC_ADMIN', true); // permite incluir los módulos de modulos/
 lc_sesion();
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
@@ -24,7 +25,7 @@ $MC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 $ZONAS = ['America/Puerto_Rico','America/Santo_Domingo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
   'America/Mexico_City','America/Guatemala','America/Panama','America/Bogota','America/Lima','America/Caracas','America/La_Paz',
   'America/Santiago','America/Argentina/Buenos_Aires','America/Sao_Paulo','Europe/Madrid','Europe/Lisbon'];
-$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth','calendario'];
+$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth','calendario','contacto','recuperar','modulos'];
 $ip = lc_ip();
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $super = !empty($_SESSION['super']);
@@ -45,6 +46,7 @@ if (!$negId && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $error = 'Demasiados intentos. Espera 15 minutos.';
   } elseif ($esSuper || ($fila && password_verify($c, $fila['clave_hash']))) {
     session_regenerate_id(true);
+    if ($esSuper && !lc_cfg('URL_BASE') && !lc_meta($db, 'url_base')) lc_meta_set($db, 'url_base', lc_base()); // dirección oficial para los correos
     $_SESSION['super'] = $esSuper;
     $_SESSION['neg'] = $fila ? (int)$fila['id'] : (int)$db->query('SELECT MIN(id) FROM negocios')->fetchColumn();
     header('Location: admin.php'); exit;
@@ -72,8 +74,18 @@ $PERSONAL = LC_PERSONAL[$neg['tipo'] ?? 'barberia'] ?? 'Barbero';
 // ── Vista y fecha ───────────────────────────────────────
 $VISTAS = ['dia' => 'Día', 'semana' => 'Semana', 'mes' => 'Mes', 'reporte' => 'Análisis', 'servicios' => 'Servicios',
            'equipo' => 'Equipo', 'negocio' => 'Negocio', 'plan' => 'Plan'];
-if ($super) $VISTAS['negocios'] = 'Negocios';
-if ($cerrado) $VISTAS = ['plan' => 'Plan'];
+// Secciones nuevas: Clientes y Caja tras la agenda; Ayuda (negocio) o Soporte (administrador) al final.
+$VISTAS = array_slice($VISTAS, 0, 4, true) + ['clientes' => 'Clientes', 'caja' => 'Caja'] + array_slice($VISTAS, 4, null, true);
+if ($super) $VISTAS += ['negocios' => 'Negocios', 'soporte' => 'Soporte']; else $VISTAS['ayuda'] = 'Ayuda';
+if ($cerrado) $VISTAS = ['plan' => 'Plan', 'ayuda' => 'Ayuda'];
+// Mensajes sin leer (para el globito de la pestaña)
+$SIN_LEER = 0;
+if ($admin) {
+  $q = $super ? $db->query("SELECT COUNT(*) FROM mensajes WHERE leido = 0 AND de IN ('negocio', 'visitante')")
+              : $db->prepare("SELECT COUNT(*) FROM mensajes WHERE leido = 0 AND de = 'soporte' AND negocio_id = ?");
+  if (!$super) $q->execute([$negId]);
+  $SIN_LEER = (int)$q->fetchColumn();
+}
 $v = $_GET['v'] ?? 'dia';
 if (!isset($VISTAS[$v])) $v = isset($VISTAS['dia']) ? 'dia' : 'plan';
 $fecha = $_GET['fecha'] ?? date('Y-m-d');
@@ -152,7 +164,8 @@ if ($admin && !empty($_SESSION['empezar_pago'])) {
 if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!hash_equals($_SESSION['csrf'], (string)($_POST['csrf'] ?? ''))) ir($v, null, 'La página caducó, inténtalo otra vez.');
   $nid = $neg['id']; $id = (int)($_POST['id'] ?? 0); $a = $_POST['accion'] ?? '';
-  if ($cerrado && !in_array($a, ['pagar', 'portal', 'email'], true)) ir('plan', null, 'Tu prueba gratis terminó. Añade tu tarjeta para seguir usando LuniCitas.');
+  if ($cerrado && !in_array($a, ['pagar', 'portal', 'email', 'chat_enviar', 'sugerir'], true)) ir('plan', null, 'Tu prueba gratis terminó. Añade tu tarjeta para seguir usando LuniCitas.');
+  require __DIR__ . '/modulos/acciones.php';
 
   // Citas
   if (isset($_POST['cancelar'])) {
@@ -339,6 +352,8 @@ if ($admin && ($_GET['export'] ?? '') === 'csv') {
   exit;
 }
 
+if ($admin) require __DIR__ . '/modulos/get.php';
+
 // ── Navegación ──────────────────────────────────────────
 $hoy = date('Y-m-d'); $manana = date('Y-m-d', strtotime('+1 day'));
 $ant = $sig = null; $titulo = $VISTAS[$v];
@@ -420,13 +435,31 @@ $base = (!empty($_SERVER['HTTPS']) ? 'https://' : 'http://') . ($_SERVER['HTTP_H
 $csrf = '<input type="hidden" name="csrf" value="' . e($_SESSION['csrf']) . '">';
 
 function tarjeta($c, $v, $fecha) {
-  global $ESTADOS, $csrf; ?>
+  global $ESTADOS, $csrf, $db, $neg;
+  $cli = null;
+  if (!empty($c['cliente_id'])) { $q = $db->prepare('SELECT * FROM clientes WHERE id = ? AND negocio_id = ?'); $q->execute([$c['cliente_id'], $neg['id']]); $cli = $q->fetch() ?: null; }
+  [$sugPct, $sugMotivo] = lc_descuento_sugerido($db, $neg, $cli);
+  $neto = (float)$c['precio'] - (float)$c['descuento']; ?>
   <div class="box cita <?= e($c['estado']) ?>">
     <div class="fila"><div class="hora"><?= e(h12($c['hora'])) ?></div>
-      <div class="t"><b><?= e($c['nombre']) ?></b><small><?= e($c['servicio']) ?> · <?= e($c['barbero']) ?> · <?= (int)$c['duracion'] ?> min · <?= e(dinero($c['precio'])) ?></small></div>
+      <div class="t"><b><?= e($c['nombre']) ?></b><?= $cli && $cli['fijo'] ? ' ⭐' : '' ?><small><?= e($c['servicio']) ?> · <?= e($c['barbero']) ?> · <?= (int)$c['duracion'] ?> min · <?= e(dinero($c['precio'])) ?><?php if ($c['estado'] === 'asistio'): ?> · cobrado <?= e(dinero($neto)) ?><?= $c['descuento'] > 0 ? ' (' . e($c['motivo'] ?: 'descuento') . ')' : '' ?><?= $c['propina'] > 0 ? ' + propina ' . e(dinero($c['propina'])) : '' ?><?php endif; ?></small>
+        <?php if ($sugPct > 0 && $c['estado'] !== 'asistio'): ?><span class="sug">🎁 Le toca <?= e(rtrim(rtrim(number_format($sugPct, 2), '0'), '.')) ?>% · <?= e($sugMotivo) ?></span><?php endif; ?></div>
       <span class="tag"><?= e($ESTADOS[$c['estado']] ?? $c['estado']) ?></span></div>
+      <?php if ($c['estado'] !== 'asistio'): ?>
+      <form method="post" action="<?= e(url($v, $fecha)) ?>" class="noprint"><?= $csrf ?><input type="hidden" name="id" value="<?= (int)$c['id'] ?>"><input type="hidden" name="accion" value="cobrar">
+      <details class="cobro"><summary class="si" role="button">✓ Asistió y cobrar</summary>
+        <div class="cf"><label>Descuento</label>
+          <select name="pct"><option value="0">Sin descuento · <?= e(dinero($c['precio'])) ?></option>
+            <?php if ($sugPct > 0): ?><option value="<?= e($sugPct) ?>" selected><?= e(rtrim(rtrim(number_format($sugPct, 2), '0'), '.')) ?>% · <?= e($sugMotivo) ?> · <?= e(dinero($c['precio'] * (1 - $sugPct / 100))) ?></option><?php endif; ?>
+            <?php foreach ([5, 10, 15, 20, 25, 50, 100] as $pc): if (abs($pc - $sugPct) < 0.01) continue; ?><option value="<?= $pc ?>"><?= $pc ?>%<?= $pc == 100 ? ' (gratis)' : '' ?> · <?= e(dinero($c['precio'] * (1 - $pc / 100))) ?></option><?php endforeach; ?>
+          </select>
+          <label>Propina (opcional)</label><input name="propina" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0">
+          <label>¿Cómo pagó?</label>
+          <div class="mt"><button name="metodo" value="efectivo">💵 Efectivo</button><button name="metodo" value="ath">📱 ATH Móvil</button>
+            <button name="metodo" value="tarjeta">💳 Tarjeta</button><button name="metodo" value="transferencia">🏦 Transferencia</button></div></div></details></form>
+      <?php endif; ?>
     <form method="post" action="<?= e(url($v, $fecha)) ?>" class="acc noprint"><?= $csrf ?><input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
-      <button class="si" name="estado" value="asistio">✓ Asistió</button>
+
       <button class="no" name="estado" value="no_asistio">✗ No vino</button>
       <?php if ($GLOBALS['pro']): ?><button class="wa" name="accion" value="recordar" formtarget="_blank" onclick="setTimeout(()=>location.reload(),800)"><?= $c['recordado'] ? '✓ Recordado' : '🔔 Recordar por WhatsApp' ?></button>
       <?php else: ?><a class="wa" href="?v=plan">🔔 Recordar (Pro)</a><?php endif; ?>
@@ -478,14 +511,20 @@ details.item form{padding:0 12px 12px}.price{color:var(--m);font-weight:700}
 .hor .desc{grid-column:2/4;display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;align-items:center;font-size:12px;color:#8a88a0;margin-bottom:8px}
 .enlace{background:#f1edff;border-radius:12px;padding:10px;font-size:14px;word-break:break-all;margin-bottom:10px}
 table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,table.lista th{padding:8px 6px;border-bottom:1px solid #eee;text-align:left}
+.volver{display:inline-block;font-size:14px;color:#5b45d6;text-decoration:none;font-weight:600;margin-bottom:8px}
 .instalar{display:flex;align-items:center;gap:12px;width:100%;background:#fff;border:2px dashed #cfc6ff;border-radius:16px;padding:12px 14px;margin-bottom:12px;font:inherit;font-size:14px;color:#1d1b2e;text-align:left;cursor:pointer}.instalar img{width:40px;height:40px;border-radius:10px}.instalar b{display:block;font-size:15px}.instalar[hidden]{display:none}
+.nb{display:inline-block;background:#e5484d;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 6px;margin-left:2px}
+.cobro summary{list-style:none;display:inline-block}.cobro summary::-webkit-details-marker{display:none}.cobro[open]{width:100%}.cobro .cf{background:#f7f7fb;border-radius:14px;padding:10px;margin-top:8px}
+.cobro .cf select,.cobro .cf input{margin:0 0 8px}.cobro .mt{display:grid;grid-template-columns:1fr 1fr;gap:6px}.cobro .mt button{padding:10px;border:0;border-radius:12px;background:#fff;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.sug{font-size:12px;background:#e3faf7;color:#0b7a6e;border-radius:8px;padding:4px 8px;display:inline-block;margin-top:4px}
 .plan-prueba{color:#b25e00!important}.plan-cerrado{color:#c0392b!important}
 .ck{display:flex;gap:6px;align-items:center;font-size:14px;margin-bottom:10px}.ck input{width:auto;margin:0}
 @media print{.noprint{display:none!important}body{background:#fff}.box,.stat{box-shadow:none;border:1px solid #ddd}}
 <?= LC_OAUTH_CSS ?>
 </style></head><body><div class="app">
 <?php if (!$admin): ?>
-  <div class="top"><img src="logo.svg?v=3" alt="lunicitas"></div>
+  <a class="volver" href="./">← Volver al inicio</a>
+  <div class="top"><a href="./"><img src="logo.svg?v=3" alt="lunicitas, ir al inicio"></a></div>
   <div class="box" style="max-width:420px;margin:0 auto"><h2 style="margin-bottom:14px">Portal del dueño</h2>
     <?php if ($error): ?><p class="err"><?= e($error) ?></p><?php endif; ?>
     <?php if ($aviso): ?><p class="err" style="background:#efeaff;color:#3a2a99"><?= e($aviso) ?></p><?php endif; ?>
@@ -493,12 +532,13 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
     <form method="post"><input name="u" placeholder="Usuario" autocomplete="username" required>
     <input name="p" type="password" placeholder="Contraseña" autocomplete="current-password" required>
     <button class="btn" style="width:100%">Entrar</button></form>
+    <p style="text-align:center;margin-top:12px;font-size:14px"><a href="recuperar.php" style="color:#5b45d6">¿Olvidaste tu contraseña?</a></p>
     <button type="button" class="instalar" data-instalar hidden style="margin-top:14px"><img src="assets/app/icono-192.png" alt=""><span><b>Instala la app en tu celular</b>Entra a tu agenda con un toque desde la pantalla de inicio.</span></button>
     <?php if (lc_registro_abierto($db)): ?><p style="text-align:center;margin-top:14px;font-size:14px;color:#6b6980">¿Tienes un negocio? <a href="registro.php" style="color:#7b5cff;font-weight:600">Crea tu cuenta gratis</a></p><?php endif; ?></div>
 <?php else: ?>
   <div class="top"><img src="logo.svg?v=3" alt="lunicitas"><span class="neg"><b><?= e($neg['nombre']) ?></b> · <a href="<?= e($base . '/' . $neg['slug']) ?>" target="_blank">ver página</a> · <a href="?v=plan" class="plan-<?= $PLAN['clave'] ?>"><?= e($PLAN_NOMBRE[$PLAN['clave']]) ?><?= $PLAN['dias'] ? ': ' . $PLAN['dias'] . ' días' : '' ?></a></span><a class="noprint" href="?salir=1">Salir</a></div>
   <div class="tabs noprint">
-    <?php foreach ($VISTAS as $k => $n): ?><a class="<?= $v === $k ? 'on' : '' ?>" href="<?= e(url($k)) ?>"><?= $n ?></a><?php endforeach; ?>
+    <?php foreach ($VISTAS as $k => $n): ?><a class="<?= $v === $k ? 'on' : '' ?>" href="<?= e(url($k)) ?>"><?= $n ?><?php if (in_array($k, ['ayuda', 'soporte'], true) && $SIN_LEER && $v !== $k): ?> <span class="nb" aria-label="mensajes sin leer"><?= $SIN_LEER ?></span><?php endif; ?></a><?php endforeach; ?>
   </div>
   <?php if ($aviso): ?><div class="aviso noprint"><?= e($aviso) ?></div><?php endif; ?>
   <?php if ($v === 'dia'): ?><button type="button" class="instalar noprint" data-instalar hidden><img src="assets/app/icono-192.png" alt=""><span><b>Instala LuniCitas en tu celular</b>Tu agenda a un toque, como cualquier otra app. Es gratis y no ocupa espacio.</span></button><?php endif; ?>
@@ -732,7 +772,12 @@ $PLAN_PRECIO = '$20 al mes';</pre></li>
       </ol></div>
     <?php endif; ?>
 
+  <?php elseif ($v === 'clientes'): include __DIR__ . '/modulos/v_clientes.php'; ?>
+  <?php elseif ($v === 'caja'): include __DIR__ . '/modulos/v_caja.php'; ?>
+  <?php elseif ($v === 'ayuda'): include __DIR__ . '/modulos/v_ayuda.php'; ?>
+  <?php elseif ($v === 'soporte'): include __DIR__ . '/modulos/v_soporte.php'; ?>
   <?php elseif ($v === 'negocios'): ?>
+    <?php if (lc_stripe_activo()) include __DIR__ . '/modulos/v_stripe.php'; else { ?><div class="alerta">💳 Stripe todavía <b>no está conectado</b>: faltan la clave y el precio en la configuración. Los negocios no pueden pagar hasta que se configuren.</div><?php } ?>
     <div class="box"><h3>🏪 Negocios en la plataforma</h3>
       <table class="lista"><tr><th>Negocio</th><th>Enlace</th><th>Citas</th><th>Plan</th><th></th></tr>
       <?php foreach ($lista as $n): ?>

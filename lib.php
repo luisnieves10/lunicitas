@@ -2,7 +2,7 @@
 // LuniCitas — funciones compartidas por api.php, admin.php, install.php y recordatorios.php
 // Licencia AGPL-3.0
 
-const LC_VERSION_BD = 7;
+const LC_VERSION_BD = 8;
 const LC_STRIPE_VERSION = '2026-10-28.endive'; // versión fija de la API de Stripe
 const LC_DIAS_PRUEBA = 3; // días de prueba gratis; después la cuenta se cierra hasta que pague
 const LC_TIPOS = ['barberia' => 'Barbería', 'salon' => 'Salón de belleza', 'estetica' => 'Estética / spa'];
@@ -131,6 +131,32 @@ function lc_migrar($db) {
       $db->prepare('UPDATE citas SET duracion = ?, precio = ? WHERE servicio = ? AND precio = 0')->execute([$d, $p, $n]);
     }
   }
+  // Versión 8: clientes y club, caja y cierres, chat de soporte, recuperar contraseña
+  $db->exec("CREATE TABLE IF NOT EXISTS clientes (
+    id INT AUTO_INCREMENT PRIMARY KEY, negocio_id INT NOT NULL, nombre VARCHAR(80) NOT NULL, telefono VARCHAR(20) NOT NULL,
+    email VARCHAR(120) NOT NULL DEFAULT '', codigo VARCHAR(10) NOT NULL, referido_por INT NULL, fijo TINYINT NOT NULL DEFAULT 0,
+    club TINYINT NOT NULL DEFAULT 0, nota VARCHAR(200) NOT NULL DEFAULT '', premios_usados INT NOT NULL DEFAULT 0,
+    creado TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY (negocio_id, telefono), UNIQUE KEY (negocio_id, codigo), KEY (referido_por)) CHARACTER SET utf8mb4");
+  $db->exec("CREATE TABLE IF NOT EXISTS movimientos (
+    id INT AUTO_INCREMENT PRIMARY KEY, negocio_id INT NOT NULL, fecha DATE NOT NULL, tipo VARCHAR(6) NOT NULL,
+    concepto VARCHAR(80) NOT NULL, monto DECIMAL(10,2) NOT NULL, metodo VARCHAR(12) NOT NULL DEFAULT '',
+    creado TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY (negocio_id, fecha)) CHARACTER SET utf8mb4");
+  $db->exec("CREATE TABLE IF NOT EXISTS cierres (
+    id INT AUTO_INCREMENT PRIMARY KEY, negocio_id INT NOT NULL, tipo VARCHAR(6) NOT NULL, desde DATE NOT NULL, hasta DATE NOT NULL,
+    datos TEXT NOT NULL, creado TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY (negocio_id, tipo, desde)) CHARACTER SET utf8mb4");
+  $db->exec("CREATE TABLE IF NOT EXISTS mensajes (
+    id INT AUTO_INCREMENT PRIMARY KEY, negocio_id INT NULL, de VARCHAR(12) NOT NULL, tipo VARCHAR(10) NOT NULL DEFAULT 'chat',
+    nombre VARCHAR(80) NOT NULL DEFAULT '', email VARCHAR(120) NOT NULL DEFAULT '', texto TEXT NOT NULL,
+    leido TINYINT NOT NULL DEFAULT 0, creada TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY (negocio_id, id)) CHARACTER SET utf8mb4");
+  $db->exec("CREATE TABLE IF NOT EXISTS recuperar (
+    id INT AUTO_INCREMENT PRIMARY KEY, negocio_id INT NOT NULL, hash CHAR(64) NOT NULL UNIQUE, expira DATETIME NOT NULL,
+    usado TINYINT NOT NULL DEFAULT 0, KEY (negocio_id)) CHARACTER SET utf8mb4");
+  foreach (['cliente_id' => 'INT NULL', 'descuento' => 'DECIMAL(8,2) NOT NULL DEFAULT 0', 'motivo' => "VARCHAR(40) NOT NULL DEFAULT ''",
+            'propina' => 'DECIMAL(8,2) NOT NULL DEFAULT 0', 'metodo' => "VARCHAR(12) NOT NULL DEFAULT ''"] as $c => $def)
+    if (!lc_columna($db, 'citas', $c)) $db->exec("ALTER TABLE citas ADD $c $def");
+  if (!lc_columna($db, 'equipo', 'comision')) $db->exec('ALTER TABLE equipo ADD comision DECIMAL(5,2) NOT NULL DEFAULT 0');
+  if (!lc_columna($db, 'negocios', 'promos')) $db->exec("ALTER TABLE negocios ADD promos TEXT NULL");
+
   // Versión 7: el usuario puede ser un correo; cuentas de Google o Microsoft conectadas a cada negocio
   if ($ver >= 1 && $ver < 7) $db->exec('ALTER TABLE negocios MODIFY usuario VARCHAR(120) NOT NULL');
   $db->exec("CREATE TABLE IF NOT EXISTS identidades (
@@ -143,6 +169,14 @@ function lc_migrar($db) {
   if ($ver >= 3 && $ver < 6) {
     $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ? WHERE plan = 'gratis' OR (plan = 'prueba' AND (prueba_hasta IS NULL OR prueba_hasta < CURDATE()))")
        ->execute([date('Y-m-d', strtotime('+' . LC_DIAS_PRUEBA . ' days'))]);
+  }
+  // Versión 8: crea la ficha de cada cliente a partir de sus citas anteriores (por teléfono).
+  if ($ver >= 1 && $ver < 8) {
+    $filas = $db->query("SELECT id, negocio_id, nombre, telefono FROM citas WHERE cliente_id IS NULL ORDER BY id DESC")->fetchAll();
+    foreach ($filas as $c) {
+      $cli = lc_cliente($db, ['id' => $c['negocio_id']], $c['nombre'], $c['telefono']);
+      if ($cli) $db->prepare('UPDATE citas SET cliente_id = ? WHERE id = ?')->execute([$cli['id'], $c['id']]);
+    }
   }
   $db->prepare("REPLACE INTO lc_meta (k, v) VALUES ('version', ?)")->execute([LC_VERSION_BD]);
 }
@@ -340,4 +374,124 @@ function lc_cal_cita($db, $neg, $servicio, $con, $fecha, $hora, $duracion) {
   $d = rtrim(strtr(base64_encode(json_encode($c, JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
   $c['ics'] = 'calendario.php?d=' . $d . '&s=' . substr(hash_hmac('sha256', $d, lc_cal_clave($db)), 0, 32);
   return $c;
+}
+
+// ── Correo ──────────────────────────────────────────────
+// Con $SMTP_HOST, $SMTP_USUARIO y $SMTP_CLAVE (en config-claves.php) envía por SMTP seguro (puerto 465);
+// si no, usa mail() del hosting. $CORREO_DE es el remitente (ej. no-responder@lunicitas.com).
+function lc_correo($para, $asunto, $texto) {
+  $para = trim((string)$para);
+  if (!filter_var($para, FILTER_VALIDATE_EMAIL) || preg_match('/[\r\n]/', $para)) return false;
+  $asunto = str_replace(["\r", "\n"], ' ', (string)$asunto);
+  $de = (string)lc_cfg('CORREO_DE', lc_cfg('SMTP_USUARIO', 'no-responder@' . preg_replace('/^www\./', '', $_SERVER['HTTP_HOST'] ?? 'lunicitas.com')));
+  $asuntoCod = '=?UTF-8?B?' . base64_encode($asunto) . '?=';
+  $cab = "From: =?UTF-8?B?" . base64_encode('LuniCitas') . "?= <$de>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n"
+       . "Content-Transfer-Encoding: base64\r\nX-Mailer: LuniCitas";
+  $cuerpo = chunk_split(base64_encode($texto));
+  $host = lc_cfg('SMTP_HOST');
+  if (!$host) { $ok = @mail($para, $asuntoCod, $cuerpo, $cab, '-f' . $de); if (!$ok) error_log('LuniCitas: mail() falló para ' . $para); return $ok; }
+  $s = @stream_socket_client('ssl://' . $host . ':' . (int)lc_cfg('SMTP_PUERTO', 465), $en, $es, 15);
+  if (!$s) { error_log("LuniCitas SMTP: no conecta ($es)"); return false; }
+  stream_set_timeout($s, 15);
+  $lee = function () use ($s) { $r = ''; while (($l = fgets($s, 515)) !== false) { $r .= $l; if (isset($l[3]) && $l[3] === ' ') break; } return $r; };
+  $cmd = function ($c, $esperado) use ($s, $lee) { if ($c !== null) fwrite($s, $c . "\r\n"); $r = $lee(); if ((int)substr($r, 0, 3) !== $esperado) throw new Exception(trim($r)); };
+  try {
+    $cmd(null, 220); $cmd('EHLO ' . preg_replace('/[^a-z0-9.-]/i', '', $_SERVER['HTTP_HOST'] ?? 'lunicitas.com'), 250);
+    $cmd('AUTH LOGIN', 334); $cmd(base64_encode((string)lc_cfg('SMTP_USUARIO')), 334); $cmd(base64_encode((string)lc_cfg('SMTP_CLAVE')), 235);
+    $cmd("MAIL FROM:<$de>", 250); $cmd("RCPT TO:<$para>", 250); $cmd('DATA', 354);
+    $msg = "To: <$para>\r\nSubject: $asuntoCod\r\nDate: " . date('r') . "\r\nMessage-ID: <" . bin2hex(random_bytes(12)) . '@' . substr(strrchr($de, '@'), 1) . ">\r\n$cab\r\n\r\n$cuerpo";
+    $cmd(str_replace("\r\n.", "\r\n..", $msg) . "\r\n.", 250); $cmd('QUIT', 221);
+    fclose($s); return true;
+  } catch (Exception $e) { error_log('LuniCitas SMTP: ' . $e->getMessage()); @fclose($s); return false; }
+}
+// Correo donde llegan los avisos de soporte (nunca se muestra en la web).
+function lc_correo_soporte() { return (string)lc_cfg('SOPORTE_EMAIL', ''); } // se configura en config-claves.php
+
+// ── Clientes, club y referidos ──────────────────────────
+function lc_tel($t) { return substr(preg_replace('/[^0-9]/', '', (string)$t), -15); }
+function lc_promos($neg) {
+  $p = json_decode((string)($neg['promos'] ?? ''), true) ?: [];
+  return $p + ['club' => 1, 'fijo_pct' => 10, 'fijo_visitas' => 4, 'ref_meta' => 3, 'ref_pct' => 20, 'bienvenida_pct' => 10];
+}
+function lc_codigo_nuevo($db, $negId) {
+  $abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  do { $c = ''; for ($i = 0; $i < 6; $i++) $c .= $abc[random_int(0, 31)];
+       $q = $db->prepare('SELECT 1 FROM clientes WHERE negocio_id = ? AND codigo = ?'); $q->execute([$negId, $c]); } while ($q->fetch());
+  return $c;
+}
+// Busca o crea el cliente por teléfono. $club: se unió al club (gratis). $ref: código de quien lo recomendó.
+function lc_cliente($db, $neg, $nombre, $telefono, $email = '', $club = false, $ref = '') {
+  $tel = lc_tel($telefono); if (strlen($tel) < 7) return null;
+  $q = $db->prepare('SELECT * FROM clientes WHERE negocio_id = ? AND telefono = ?'); $q->execute([$neg['id'], $tel]); $c = $q->fetch();
+  if (!$c) {
+    $por = null;
+    if ($ref !== '') { $q = $db->prepare('SELECT id FROM clientes WHERE negocio_id = ? AND codigo = ?'); $q->execute([$neg['id'], strtoupper($ref)]); $por = $q->fetchColumn() ?: null; }
+    $db->prepare('INSERT INTO clientes (negocio_id, nombre, telefono, email, codigo, referido_por, club) VALUES (?,?,?,?,?,?,?)')
+       ->execute([$neg['id'], mb_substr($nombre, 0, 80), $tel, $email, lc_codigo_nuevo($db, $neg['id']), $por, $club ? 1 : 0]);
+    $q = $db->prepare('SELECT * FROM clientes WHERE id = ?'); $q->execute([$db->lastInsertId()]); return $q->fetch();
+  }
+  if ($club && !$c['club']) $db->prepare('UPDATE clientes SET club = 1, email = IF(email = "", ?, email) WHERE id = ?')->execute([$email, $c['id']]);
+  elseif ($email !== '' && $c['email'] === '') $db->prepare('UPDATE clientes SET email = ? WHERE id = ?')->execute([$email, $c['id']]);
+  return array_merge($c, ['club' => $club ? 1 : $c['club']]);
+}
+// Recomendaciones que cuentan: clientes que llegaron con su código y ya vinieron al menos una vez.
+function lc_referidos($db, $clienteId) {
+  $q = $db->prepare("SELECT COUNT(*) FROM clientes r WHERE r.referido_por = ? AND EXISTS (SELECT 1 FROM citas c WHERE c.cliente_id = r.id AND c.estado = 'asistio')");
+  $q->execute([$clienteId]); return (int)$q->fetchColumn();
+}
+// Descuento que corresponde hoy a un cliente: [porcentaje, motivo, usaPremio]
+function lc_descuento_sugerido($db, $neg, $cliente) {
+  if (!$cliente) return [0, '', false];
+  $p = lc_promos($neg); $op = [];
+  if ($p['ref_meta'] > 0 && $p['ref_pct'] > 0) {
+    $premios = intdiv(lc_referidos($db, $cliente['id']), (int)$p['ref_meta']) - (int)$cliente['premios_usados'];
+    if ($premios > 0) $op[] = [(float)$p['ref_pct'], 'Premio por recomendar', true];
+  }
+  $q = $db->prepare("SELECT COUNT(*) FROM citas WHERE cliente_id = ? AND estado = 'asistio'"); $q->execute([$cliente['id']]); $visitas = (int)$q->fetchColumn();
+  if ($p['fijo_pct'] > 0 && ($cliente['fijo'] || ($p['fijo_visitas'] > 0 && $visitas >= $p['fijo_visitas']))) $op[] = [(float)$p['fijo_pct'], 'Cliente fijo', false];
+  if ($p['bienvenida_pct'] > 0 && $cliente['referido_por'] && $visitas === 0) $op[] = [(float)$p['bienvenida_pct'], 'Bienvenida por recomendación', false];
+  if (!$op) return [0, '', false];
+  usort($op, function ($a, $b) { return $b[0] <=> $a[0]; });
+  return $op[0];
+}
+
+// ── Caja: cuentas de un periodo ─────────────────────────
+// Ingresos = servicios cobrados (precio − descuento) + ventas extra. Ganancia = ingresos − gastos − comisiones del equipo.
+// Las propinas se muestran aparte: son del equipo.
+function lc_caja($db, $neg, $desde, $hasta) {
+  $r = ['desde' => $desde, 'hasta' => $hasta, 'citas' => 0, 'bruto' => 0, 'descuentos' => 0, 'servicios' => 0, 'propinas' => 0,
+        'ventas' => 0, 'gastos' => 0, 'comisiones' => 0, 'metodos' => [], 'equipo' => []];
+  $q = $db->prepare("SELECT c.precio, c.descuento, c.propina, c.metodo, c.equipo_id, c.barbero, e.nombre en, e.comision
+                     FROM citas c LEFT JOIN equipo e ON e.id = c.equipo_id AND e.negocio_id = c.negocio_id
+                     WHERE c.negocio_id = ? AND c.estado = 'asistio' AND c.fecha BETWEEN ? AND ?");
+  $q->execute([$neg['id'], $desde, $hasta]);
+  foreach ($q->fetchAll() as $c) {
+    $neto = (float)$c['precio'] - (float)$c['descuento']; $m = $c['metodo'] ?: 'efectivo';
+    $r['citas']++; $r['bruto'] += (float)$c['precio']; $r['descuentos'] += (float)$c['descuento']; $r['servicios'] += $neto; $r['propinas'] += (float)$c['propina'];
+    $r['metodos'][$m] = ($r['metodos'][$m] ?? 0) + $neto + (float)$c['propina'];
+    $k = (string)($c['equipo_id'] ?: $c['barbero']);
+    if (!isset($r['equipo'][$k])) $r['equipo'][$k] = ['nombre' => $c['en'] ?: $c['barbero'], 'citas' => 0, 'neto' => 0, 'propinas' => 0, 'pct' => (float)$c['comision'], 'comision' => 0];
+    $r['equipo'][$k]['citas']++; $r['equipo'][$k]['neto'] += $neto; $r['equipo'][$k]['propinas'] += (float)$c['propina'];
+  }
+  foreach ($r['equipo'] as &$e) { $e['comision'] = round($e['neto'] * $e['pct'] / 100, 2); $r['comisiones'] += $e['comision']; } unset($e);
+  $q = $db->prepare('SELECT tipo, monto, metodo FROM movimientos WHERE negocio_id = ? AND fecha BETWEEN ? AND ?'); $q->execute([$neg['id'], $desde, $hasta]);
+  foreach ($q->fetchAll() as $m) {
+    $mt = $m['metodo'] ?: 'efectivo';
+    if ($m['tipo'] === 'venta') { $r['ventas'] += (float)$m['monto']; $r['metodos'][$mt] = ($r['metodos'][$mt] ?? 0) + (float)$m['monto']; }
+    else { $r['gastos'] += (float)$m['monto']; $r['metodos'][$mt] = ($r['metodos'][$mt] ?? 0) - (float)$m['monto']; }
+  }
+  $r['ingresos'] = $r['servicios'] + $r['ventas'];
+  $r['ganancia'] = $r['ingresos'] - $r['gastos'] - $r['comisiones'];
+  $r['equipo'] = array_values($r['equipo']);
+  foreach (['bruto', 'descuentos', 'servicios', 'propinas', 'ventas', 'gastos', 'comisiones', 'ingresos', 'ganancia'] as $k) $r[$k] = round($r[$k], 2);
+  return $r;
+}
+
+// Dirección pública oficial para los enlaces de los correos. Nunca se arma con el dominio que manda el navegador
+// (evita que alguien falsifique el enlace de cambiar contraseña). Usa $URL_BASE de la configuración;
+// si no existe, la que se guardó la primera vez que entró el administrador.
+function lc_url_publica($db = null) {
+  $u = (string)lc_cfg('URL_BASE');
+  if ($u === '' && $db) $u = (string)lc_meta($db, 'url_base', '');
+  return rtrim($u !== '' ? $u : lc_base(), '/');
 }

@@ -90,6 +90,25 @@ Los botones aparecen solos cuando sus datos están en `config.php`.
 
 LuniCitas se instala como app desde el navegador (Android: aviso “Instalar”; iPhone: Compartir → Añadir a pantalla de inicio), con icono, pantalla completa y una página para cuando no hay conexión (`manifest.webmanifest`, `sw.js`).
 
+### Correo, soporte y dirección oficial
+
+Pon esto en `config-claves.php` (junto a `config.php` o en la carpeta de la app; nunca en GitHub):
+
+```php
+$URL_BASE = 'https://TU-DOMINIO';          // los enlaces de los correos siempre usan esta dirección
+$SOPORTE_EMAIL = 'tu@correo.com';          // aquí llegan los avisos del chat y del formulario (no se muestra en la web)
+$SMTP_HOST = 'smtp.hostinger.com';         // opcional: correo por SMTP seguro (puerto 465)
+$SMTP_USUARIO = 'no-responder@TU-DOMINIO'; $SMTP_CLAVE = '…';
+```
+
+Sin SMTP se usa `mail()` del hosting. Con esto funcionan el correo de bienvenida, **¿Olvidaste tu contraseña?** (`recuperar.php`, enlace de un solo uso que vale 1 hora), el chat de **Ayuda** del portal, el formulario público `contacto.php` y la bandeja **Soporte** del administrador.
+
+### Clientes y Caja
+
+- **Clientes:** cada persona que reserva aparece sola, con sus visitas, lo que ha gastado y si es cliente fijo. Filtros de fijos, club, con premio y “te extrañan” (más de 35 días sin venir) con invitación por WhatsApp en un toque.
+- **Club y recomendaciones:** al reservar, el cliente puede unirse gratis y recibe su enlace para recomendar. El dueño elige los descuentos (fijos, premio cada N recomendados, bienvenida). Al cobrar, LuniCitas sugiere el mejor descuento que le toca.
+- **Caja:** cobro con descuento, propina y forma de pago (efectivo, tarjeta, ATH Móvil, transferencia); ventas y gastos; comisión por persona; ganancia de la semana o el mes; cierres descargables en Excel.
+
 ### Recordatorios automáticos por WhatsApp (opcional)
 
 El botón **Recordar por WhatsApp** del portal funciona sin configurar nada. Si además quieres que salgan solos el día antes:

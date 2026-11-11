@@ -19,6 +19,7 @@ if (!$db) fin(503, 'No instalada');
 $payload = file_get_contents('php://input');
 if (!lc_stripe_firma_valida($payload, $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '', (string)lc_cfg('STRIPE_WEBHOOK_SECRET'))) fin(400, 'Firma no válida');
 $ev = json_decode($payload, true);
+lc_meta_set($db, 'stripe_ultimo_aviso', date('Y-m-d H:i:s')); // para el panel "Conexión con Stripe"
 $obj = $ev['data']['object'] ?? [];
 $tipo = $ev['type'] ?? '';
 

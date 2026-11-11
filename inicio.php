@@ -17,7 +17,7 @@ $demoUrl = $demo ? $demo['slug'] : '';
 ?>
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LuniCitas: reservas en línea para barberías, salones y centros de estética</title>
+<title>LuniCitas: agenda tus clientes en línea · barberías, salones y estética</title>
 <meta name="description" content="Tu agenda en línea: tus clientes reservan solos desde el celular, a cualquier hora. Prueba <?= $dias ?> días gratis.">
 <meta property="og:title" content="LuniCitas: tus clientes reservan solos">
 <meta property="og:description" content="Agenda en línea para barberías, salones y centros de estética. Prueba <?= $dias ?> días gratis.">
@@ -48,7 +48,9 @@ a{color:var(--violeta-osc)}
 
 /* Portada */
 .portada{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;padding:40px 0 72px}
-h1{font-size:clamp(2.3rem,5.4vw,3.9rem);line-height:1.05;font-weight:800;letter-spacing:-.035em;max-width:13ch}
+h1{font-weight:800;letter-spacing:-.035em;line-height:1.02}
+.h1a{display:block;font-size:clamp(2.8rem,7vw,4.8rem);background:linear-gradient(90deg,#7b5cff,#1fd1c1);-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:.06em}
+.h1b{display:block;font-size:clamp(1.5rem,3.2vw,2.2rem);color:var(--tinta);letter-spacing:-.02em;line-height:1.15;margin-top:10px;max-width:18ch}
 .bajada{font-size:clamp(1.05rem,1.6vw,1.2rem);color:var(--gris);margin:22px 0 30px;max-width:36ch}
 .acciones{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 .boton{display:inline-block;background:var(--violeta);color:#fff;font-weight:600;font-size:17px;text-decoration:none;padding:15px 26px;border-radius:14px;box-shadow:0 8px 24px -10px rgba(123,92,255,.8)}
@@ -167,7 +169,7 @@ footer nav a{margin-left:18px}
         <circle cx="56" cy="56" r="16" fill="#1fd1c1" stroke="#1d1b2e" stroke-width="3"/>
         <path d="M56 48v16M48 56h16" stroke="#1d1b2e" stroke-width="3.4" stroke-linecap="round"/>
       </svg>
-      <h1>Tus clientes reservan solos, a cualquier hora.</h1>
+      <h1><span class="h1a">Agenda tus clientes</span><span class="h1b">Ellos reservan solos, a cualquier hora.</span></h1>
       <p class="bajada">LuniCitas es la agenda en línea para barberías, salones de belleza y centros de estética. Compartes tu enlace, tus clientes eligen servicio, persona y hora, y la cita aparece en tu agenda. Sin llamadas, sin mensajes.</p>
       <div class="acciones">
         <a class="boton" href="registro">Crear mi cuenta gratis</a>

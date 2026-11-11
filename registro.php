@@ -54,7 +54,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($base) < 3) $base .= '-lc';
     $slug = $base; $n = 2;
     $chk = $db->prepare('SELECT COUNT(*) FROM negocios WHERE slug = ?');
-    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth','calendario'], true)) break; $slug = $base . '-' . $n++; }
+    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth','calendario','contacto','recuperar','modulos'], true)) break; $slug = $base . '-' . $n++; }
 
     $id = lc_crear_negocio($db, $nombre, $tipo, $slug, $usuario, $_POST['clave'], $persona);
     $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ?, email = ?, terminos_aceptados = NOW() WHERE id = ?")
@@ -69,6 +69,16 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
     session_regenerate_id(true);
     $_SESSION['neg'] = $id; $_SESSION['super'] = false;
     $_SESSION['empezar_pago'] = true; // el portal lo lleva directo a poner la tarjeta, con sus días gratis
+    // Correo de bienvenida con lo necesario para empezar (nunca incluye la contraseña).
+    $web = lc_url_publica($db);
+    lc_correo($email, '¡Bienvenido a LuniCitas, ' . $nombre . '!',
+      "Hola $persona,\n\nTu cuenta de LuniCitas para $nombre está lista.\n\n"
+      . "• Tu página de reservas (compártela con tus clientes): $web/$slug\n"
+      . "• Tu portal: $web/entrar\n"
+      . ($nuevo ? "• Para entrar: toca «Continuar con " . $PROV[$nuevo['p']] . "».\n" : "• Tu usuario: $usuario\n")
+      . "• Prueba gratis hasta el " . date('j/n/Y', strtotime('+' . LC_DIAS_PRUEBA . ' days')) . ". Puedes cancelar cuando quieras en Plan.\n\n"
+      . "¿Olvidaste tu contraseña? $web/recuperar.php\n¿Necesitas ayuda? Usa el chat de Ayuda en tu portal.\n\n"
+      . "Términos: $web/terminos · Privacidad: $web/privacidad\n\n¡Éxitos con tu negocio!\nLuniCitas");
     $_SESSION['aviso'] = '¡Bienvenido a LuniCitas! Tienes ' . LC_DIAS_PRUEBA . ' días de prueba con todo incluido; después añade tu tarjeta en Plan para seguir. Revisa tu horario y servicios, y comparte tu enlace. Para volver a entrar usa ' . ($_SERVER['HTTP_HOST'] ?? '') . '/entrar' . ($nuevo ? ' y toca Continuar con ' . $PROV[$nuevo['p']] . '.' : '.');
     header('Location: admin.php?v=negocio'); exit;
   }
@@ -96,9 +106,10 @@ input:focus,select:focus{border-color:#7b5cff;outline:none}
 .err{background:#fdecec;color:#c0262c;border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px}
 .trampa{position:absolute;left:-9999px}.pie a{color:#5b45d6}
 .pie{text-align:center;font-size:13px;color:#8a88a0}.pie a{color:#7b5cff}
-<?= LC_OAUTH_CSS ?>.conectado{background:#e3faf7;border-radius:12px;padding:12px;font-size:14px;margin-bottom:12px}.conectado a{color:#5b45d6}
+<?= LC_OAUTH_CSS ?>.volver{display:inline-block;font-size:14px;color:#5b45d6;text-decoration:none;font-weight:600;margin-bottom:10px}.conectado{background:#e3faf7;border-radius:12px;padding:12px;font-size:14px;margin-bottom:12px}.conectado a{color:#5b45d6}
 </style></head><body><div class="app">
-<div class="top"><img src="logo.svg?v=3" alt="lunicitas"><a href="entrar">Ya tengo cuenta · Entrar</a></div>
+<a class="volver" href="./">← Volver al inicio</a>
+<div class="top"><a href="./"><img src="logo.svg?v=3" alt="lunicitas, ir al inicio"></a><a href="entrar">Ya tengo cuenta · Entrar</a></div>
 <?php if (!$abierto): ?>
   <div class="box"><h1>Registro cerrado</h1><p class="s">Por ahora no se aceptan negocios nuevos en esta instalación.</p></div>
 <?php else: ?>

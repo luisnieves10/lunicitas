@@ -9,14 +9,14 @@ function e($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 lc_conectar(); // carga config.php si existe
 $QUIEN = lc_cfg('LEGAL_NOMBRE', 'Edukatenow Technology Center');
-$CORREO = lc_cfg('LEGAL_EMAIL', 'luis.nieves.ramos@icloud.com');
 $LUGAR = lc_cfg('LEGAL_LUGAR', 'Puerto Rico');
 $PRECIO = lc_cfg('PLAN_PRECIO', '$20 al mes');
 $VIGENTE = '11 de noviembre de 2026';
 $DIAS = LC_DIAS_PRUEBA;
 $p = ($_GET['p'] ?? '') === 'privacidad' ? 'privacidad' : 'terminos';
 $titulo = $p === 'privacidad' ? 'Política de privacidad' : 'Términos y condiciones';
-$mail = '<a href="mailto:' . e($CORREO) . '">' . e($CORREO) . '</a>';
+// Sin correo a la vista: el contacto es por el formulario o por el chat de Ayuda del portal.
+$mail = '<a href="contacto">formulario de contacto</a>';
 ?>
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -29,9 +29,11 @@ $mail = '<a href="mailto:' . e($CORREO) . '">' . e($CORREO) . '</a>';
 h1{font-size:26px;line-height:1.25}.vig{color:#8a88a0;font-size:13px;margin:4px 0 18px}
 h2{font-size:17px;margin:22px 0 6px}p,li{font-size:15px;color:#3a3850}p{margin-bottom:8px}ul{margin:0 0 8px 20px}li{margin-bottom:4px}
 a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;margin:10px 0}
+.volver{display:inline-block;font-size:14px;color:#5b45d6;text-decoration:none;font-weight:600;margin-bottom:10px}
 .pie{text-align:center;font-size:13px;color:#6b6980;margin-top:20px}
 </style></head><body><div class="app">
-<div class="top"><a href="./"><img src="logo.svg?v=3" alt="lunicitas"></a>
+<a class="volver" href="./">← Volver al inicio</a>
+<div class="top"><a href="./"><img src="logo.svg?v=3" alt="lunicitas, ir al inicio"></a>
   <span class="tabs"><a href="terminos" class="<?= $p === 'terminos' ? 'on' : '' ?>">Términos</a><a href="privacidad" class="<?= $p === 'privacidad' ? 'on' : '' ?>">Privacidad</a></span></div>
 <div class="box">
 <h1><?= e($titulo) ?></h1><p class="vig">Vigente desde el <?= e($VIGENTE) ?></p>
@@ -62,7 +64,7 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 
 <h2>4. Cancelación y reembolsos</h2>
 <ul>
-  <li>Puedes cancelar <b>en cualquier momento, sin penalidad</b>, desde <b>Plan → Cancelar suscripción</b> en tu portal o desde “Administrar pago”. También puedes escribirnos a <?= $mail ?> y la cancelaremos por ti.</li>
+  <li>Puedes cancelar <b>en cualquier momento, sin penalidad</b>, desde <b>Plan → Cancelar suscripción</b> en tu portal o desde “Administrar pago”. También puedes pedirlo por el chat de <b>Ayuda</b> del portal o por nuestro <?= $mail ?> y la cancelaremos por ti.</li>
   <li>Al cancelar, Stripe <b>deja de cobrarte</b>: no habrá más renovaciones. Conservas Pro hasta el final del periodo ya pagado y luego la cuenta se cierra.</li>
   <li>Puedes deshacer la cancelación antes de que termine el periodo con el botón “Seguir con Pro”.</li>
   <li>Los pagos no son reembolsables, tampoco de forma parcial, salvo que la ley aplicable lo exija. Si crees que hubo un error de cobro, escríbenos dentro de los 30 días siguientes.</li>
@@ -88,7 +90,20 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
   <li>Al reservar aceptas estos términos y la Política de privacidad.</li>
 </ul>
 
-<h2>8. App instalada, archivos de calendario y tu dispositivo</h2>
+<h2>8. Club de clientes, descuentos y recomendaciones</h2>
+<ul>
+  <li>Cada negocio decide si ofrece un club de clientes, descuentos, premios por recomendar u otras promociones, y en qué condiciones. LuniCitas solo ofrece la herramienta para anotarlos y sugerirlos.</li>
+  <li>Los descuentos y premios son <b>una promesa del negocio, no de LuniCitas</b>: el negocio puede cambiarlos o terminarlos, y LuniCitas no responde por su cumplimiento.</li>
+  <li>Unirse al club es opcional y gratis. Las recomendaciones deben ser reales; el negocio puede no aplicar premios obtenidos con datos falsos.</li>
+</ul>
+
+<h2>9. Caja y cuentas del negocio</h2>
+<ul>
+  <li>La sección Caja ayuda al negocio a anotar cobros, gastos, comisiones y cierres. Las cifras dependen de lo que el negocio registra y <b>no son asesoría contable, fiscal ni legal</b>.</li>
+  <li>El negocio es responsable de revisar sus cuentas, pagar a su equipo y cumplir con sus impuestos y obligaciones.</li>
+</ul>
+
+<h2>10. App instalada, archivos de calendario y tu dispositivo</h2>
 <ul>
   <li>Puedes instalar LuniCitas, o la página de un negocio, en tu celular, tableta o computadora (Android, iPhone, iPad, Windows u otros), y guardar tus citas en tu calendario (Apple, Google, Outlook u otros). Hacerlo es <b>opcional y bajo tu propio riesgo</b>.</li>
   <li>La app instalada es la misma página web que abre tu navegador; la instalación la hacen tu navegador y tu sistema operativo, no nosotros. Se ofrece “tal cual”, sin garantía de que funcione en todos los dispositivos o versiones.</li>
@@ -97,7 +112,7 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
   <li>Puedes desinstalar la app o borrar el evento del calendario cuando quieras, como cualquier otra app o evento.</li>
 </ul>
 
-<h2>9. Interrupciones y fin del Servicio</h2>
+<h2>11. Interrupciones y fin del Servicio</h2>
 <ul>
   <li><b>Interrupciones:</b> el Servicio puede dejar de funcionar de forma temporal, total o parcial, con o sin aviso, por mantenimiento, actualizaciones, fallos técnicos, ataques informáticos, o fallos del alojamiento, de Internet, de Stripe, de WhatsApp o de otros proveedores.</li>
   <li><b>Causas fuera de nuestro control:</b> no somos responsables de ningún retraso o fallo causado por huracanes, tormentas, terremotos, inundaciones, apagones, fallos de las telecomunicaciones, pandemias, actos de gobierno, guerras, huelgas u otras causas que no podemos controlar razonablemente.</li>
@@ -107,35 +122,35 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
   <li>Como LuniCitas es de código abierto, puedes instalar tu propia copia en otro alojamiento si el Servicio deja de estar disponible.</li>
 </ul>
 
-<h2>10. Limitación de responsabilidad</h2>
+<h2>12. Limitación de responsabilidad</h2>
 <p>En la máxima medida que permita la ley, ni LuniCitas ni <?= e($QUIEN) ?>, ni sus dueños, empleados o colaboradores, serán responsables de daños directos o indirectos, incidentales, especiales, consecuentes o punitivos, ni de pérdida de ganancias, ingresos, clientes, citas o datos, incluidos los que resulten de <b>el cierre de tu cuenta al terminar la prueba, por falta de pago o por cancelación</b>, de interrupciones, fallos o la terminación del Servicio, de Stripe, del alojamiento o de WhatsApp, o de citas que tus clientes no puedan hacer, aunque se haya advertido de su posibilidad. Si aun así la ley nos hiciera responsables, nuestra responsabilidad total no superará <b>lo que nos hayas pagado en los 3 meses anteriores</b> a la reclamación, o <b>0 USD</b> si no has pagado nada. Algunas jurisdicciones no permiten ciertas limitaciones; en ese caso, se aplican solo en la medida permitida.</p>
 
-<h2>11. Indemnización</h2>
+<h2>13. Indemnización</h2>
 <p>Aceptas defender, indemnizar y mantener libre de responsabilidad a LuniCitas y a <?= e($QUIEN) ?> frente a reclamaciones, daños, multas y gastos (incluidos honorarios de abogados) de terceros, incluidos tus clientes, que surjan de tu negocio, de tu uso del Servicio, del cierre de tu cuenta, de los datos que subas o de que incumplas estos términos o la ley.</p>
 
-<h2>12. Servicios de terceros</h2>
+<h2>14. Servicios de terceros</h2>
 <p>El Servicio usa proveedores como Stripe (pagos), nuestro proveedor de alojamiento web y, si los activas, WhatsApp de Meta (recordatorios). Su funcionamiento se rige por sus propios términos y no somos responsables de sus fallos.</p>
 
-<h2>13. Suspensión y cierre</h2>
+<h2>15. Suspensión y cierre</h2>
 <p>La cuenta se cierra sola al terminar la prueba sin tarjeta, cuando no se logra cobrar o al terminar una suscripción cancelada. También podemos suspender o cerrar una cuenta, con o sin aviso, si incumple estos términos, pone en riesgo el Servicio o a otros usuarios, o cuando la ley lo exija. Tú puedes dejar de usar el Servicio cuando quieras.</p>
 
-<h2>14. Código abierto</h2>
+<h2>16. Código abierto</h2>
 <p>El programa de LuniCitas es de código abierto bajo la licencia <a href="https://github.com/luisnieves10/lunicitas/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a>. Estos términos regulan el uso del Servicio en línea que nosotros operamos, no la licencia del código.</p>
 
-<h2>15. Cambios a estos términos</h2>
+<h2>17. Cambios a estos términos</h2>
 <p>Podemos actualizar estos términos. Si el cambio es importante, te avisaremos por correo o en tu portal al menos 15 días antes. Si sigues usando el Servicio después de esa fecha, aceptas los nuevos términos.</p>
 
-<h2>16. Ley aplicable</h2>
+<h2>18. Ley aplicable</h2>
 <p>Estos términos se rigen por las leyes de <?= e($LUGAR) ?> y, cuando apliquen, por las leyes federales de los Estados Unidos. Cualquier disputa se presentará ante los tribunales con competencia en <?= e($LUGAR) ?>, salvo que la ley de protección al consumidor de tu lugar de residencia disponga otra cosa. Si alguna parte de estos términos no fuera válida, el resto sigue vigente.</p>
 
-<h2>17. Contacto</h2>
-<p><?= e($QUIEN) ?> · <?= e($LUGAR) ?> · <?= $mail ?></p>
+<h2>19. Contacto</h2>
+<p><?= e($QUIEN) ?> · <?= e($LUGAR) ?>. Escríbenos por nuestro <?= $mail ?> o, si tienes cuenta, por el chat de <b>Ayuda</b> de tu portal.</p>
 
 <?php else: ?>
 <div class="clave"><b>En resumen:</b> solo guardamos lo necesario para que funcionen tus reservas, no vendemos datos, no usamos publicidad ni rastreo, y los datos de tarjeta los maneja Stripe, no nosotros.</div>
 
 <h2>1. Quién es responsable</h2>
-<p><?= e($QUIEN) ?> (<?= e($LUGAR) ?>, <?= $mail ?>) opera LuniCitas. Hay dos tipos de personas:</p>
+<p><?= e($QUIEN) ?> (<?= e($LUGAR) ?>) opera LuniCitas; puedes escribirnos por nuestro <?= $mail ?>. Hay dos tipos de personas:</p>
 <ul>
   <li><b>Negocios</b> (barberías, salones, centros de estética) que tienen una cuenta. Para sus datos, nosotros somos los responsables.</li>
   <li><b>Clientes</b> que reservan una cita en la página de un negocio. Cada negocio decide cómo usa los datos de sus clientes y es el responsable de ellos; nosotros los guardamos y procesamos por cuenta del negocio.</li>
@@ -144,7 +159,10 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <h2>2. Qué datos recogemos</h2>
 <ul>
   <li><b>De los negocios:</b> nombre del negocio y de la persona, correo, usuario, contraseña (guardada cifrada, nunca en texto), dirección, teléfono, horario, servicios, precios, nombres y fotos del equipo.</li>
-  <li><b>De los clientes que reservan:</b> nombre, teléfono, servicio, persona elegida, fecha y hora de la cita e idioma. No pedimos cuenta ni contraseña.</li>
+  <li><b>De los clientes que reservan:</b> nombre, teléfono, servicio, persona elegida, fecha y hora de la cita e idioma. No pedimos cuenta ni contraseña. Con esos datos el negocio ve su historial de visitas en su lista de clientes.</li>
+  <li><b>Del club de clientes (opcional y gratis):</b> si te unes, el negocio guarda además tu correo si lo das, tu código para recomendar y quién te recomendó, para darte los descuentos que ofrezca. Puedes pedir al negocio que te saque del club en cualquier momento.</li>
+  <li><b>De la caja del negocio:</b> cobros, descuentos, propinas, forma de pago, ventas y gastos que el negocio registra. Solo los ve ese negocio.</li>
+  <li><b>De soporte:</b> los mensajes del chat de Ayuda y del formulario de contacto (nombre, correo y lo que escribas), para responderte.</li>
   <li><b>Si entras con Google o Microsoft:</b> recibimos de ellos tu nombre, tu correo y un identificador de tu cuenta, solo para reconocerte cuando entras. No recibimos tu contraseña ni accedemos a tu correo, tus contactos ni tus archivos.</li>
   <li><b>De pagos:</b> el identificador de cliente y de suscripción de Stripe y el estado del pago. Los datos de la tarjeta los recibe y guarda solo Stripe; nunca pasan por nuestros servidores.</li>
   <li><b>Técnicos:</b> una cookie de sesión necesaria para mantenerte conectado en el portal, y una huella cifrada de la dirección IP para frenar abusos (intentos de acceso y registros repetidos). No usamos cookies de publicidad ni herramientas de rastreo.</li>
@@ -175,7 +193,7 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <p>Mientras la cuenta del negocio exista. Si la cuenta se cierra (al terminar la prueba, por falta de pago o por cancelación), guardamos los datos hasta 90 días para que el negocio pueda volver; después podemos borrarlos sin más aviso. Si un negocio pide borrar su cuenta, borramos sus datos y los de sus citas en un máximo de 30 días, salvo lo que la ley nos obligue a conservar (por ejemplo, registros de pagos). Las copias de seguridad se eliminan en su ciclo normal.</p>
 
 <h2>6. Tus derechos</h2>
-<p>Puedes pedir ver, corregir, descargar o borrar tus datos, o oponerte a algún uso. Los negocios pueden hacer casi todo desde su portal. Si reservaste una cita, pídeselo primero al negocio; si no te responde, escríbenos a <?= $mail ?> y te ayudaremos. Respondemos en un máximo de 30 días.</p>
+<p>Puedes pedir ver, corregir, descargar o borrar tus datos, o oponerte a algún uso. Los negocios pueden hacer casi todo desde su portal. Si reservaste una cita, pídeselo primero al negocio; si no te responde, escríbenos por nuestro <?= $mail ?> y te ayudaremos. Respondemos en un máximo de 30 días.</p>
 
 <h2>7. Seguridad</h2>
 <p>Usamos conexión cifrada (HTTPS), contraseñas cifradas, límites de intentos de acceso y permisos separados para cada negocio. Ningún sistema es 100 % seguro; si ocurre un incidente que afecte tus datos, te avisaremos como exige la ley.</p>
@@ -187,8 +205,8 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <p>Si hacemos un cambio importante, lo publicaremos aquí con la nueva fecha y avisaremos a los negocios por correo o en su portal.</p>
 
 <h2>10. Contacto</h2>
-<p><?= e($QUIEN) ?> · <?= e($LUGAR) ?> · <?= $mail ?></p>
+<p><?= e($QUIEN) ?> · <?= e($LUGAR) ?>. Escríbenos por nuestro <?= $mail ?> o, si tienes cuenta, por el chat de <b>Ayuda</b> de tu portal.</p>
 <?php endif; ?>
 </div>
-<p class="pie">LuniCitas · <a href="terminos">Términos</a> · <a href="privacidad">Privacidad</a></p>
+<p class="pie">LuniCitas · <a href="terminos">Términos</a> · <a href="privacidad">Privacidad</a> · <a href="contacto">Contacto</a></p>
 </div></body></html>

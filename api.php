@@ -55,6 +55,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     'cerrado' => $q->fetchAll(PDO::FETCH_COLUMN),
     'registro' => lc_registro_abierto($db),
     'suspendido' => $suspendido,
+    // Club de clientes (gratis y opcional) y recomendaciones
+    'club' => (function () use ($db, $neg) {
+      $p = lc_promos($neg); if (!$p['club']) return null;
+      $ref = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($_GET['ref'] ?? '')));
+      $refOk = false;
+      if ($ref !== '') { $q = $db->prepare('SELECT 1 FROM clientes WHERE negocio_id = ? AND codigo = ?'); $q->execute([$neg['id'], $ref]); $refOk = (bool)$q->fetch(); }
+      return ['meta' => (int)$p['ref_meta'], 'pct' => (float)$p['ref_pct'], 'bienvenida' => (float)$p['bienvenida_pct'], 'ref' => $refOk];
+    })(),
   ]);
 }
 
@@ -66,6 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $nombre = trim(strip_tags((string)($entrada['nombre'] ?? '')));
   $telefono = preg_replace('/[^0-9+]/', '', (string)($entrada['telefono'] ?? ''));
   $idioma = in_array($entrada['idioma'] ?? '', ['es', 'en', 'pt'], true) ? $entrada['idioma'] : 'es';
+  $club = !empty($entrada['club']) && lc_promos($neg)['club'];
+  $emailCli = mb_strtolower(trim((string)($entrada['email'] ?? '')));
+  if (!filter_var($emailCli, FILTER_VALIDATE_EMAIL) || strlen($emailCli) > 120) $emailCli = '';
+  $ref = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', (string)($entrada['ref'] ?? '')), 0, 10));
 
   if (!$s || $hora === null || !lc_fecha_valida($neg, $fecha)
       || mb_strlen($nombre) < 2 || mb_strlen($nombre) > 80 || strlen($telefono) < 7 || strlen($telefono) > 20) {
@@ -89,12 +101,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
        ->execute([$neg['id'], $s['nombre'], $equipo[$elegido], $elegido, $fecha, lc_hhmm($hora), (int)$s['duracion'], $s['precio'],
                   $nombre, $telefono, $idioma, $ip]);
+    $citaId = (int)$db->lastInsertId();
     $db->commit();
   } catch (PDOException $e) {
     if ($db->inTransaction()) $db->rollBack();
     responder(500, ['error' => 'No se pudo guardar']);
   }
-  responder(201, ['ok' => true, 'con' => $equipo[$elegido],
+  // Ficha del cliente (por teléfono): visitas, club y recomendaciones. Un fallo aquí nunca anula la cita.
+  $clubInfo = null;
+  try {
+    $cli = lc_cliente($db, $neg, $nombre, $telefono, $club ? $emailCli : '', $club, $ref);
+    if ($cli) {
+      $db->prepare('UPDATE citas SET cliente_id = ? WHERE id = ? AND negocio_id = ?')->execute([$cli['id'], $citaId, $neg['id']]);
+      if ($cli['club']) { $p = lc_promos($neg); $clubInfo = ['codigo' => $cli['codigo'], 'enlace' => lc_base() . '/' . $neg['slug'] . '?ref=' . $cli['codigo'], 'meta' => (int)$p['ref_meta'], 'pct' => (float)$p['ref_pct']]; }
+    }
+  } catch (Exception $e) { error_log('LuniCitas cliente: ' . $e->getMessage()); }
+  responder(201, ['ok' => true, 'con' => $equipo[$elegido], 'club' => $clubInfo,
     'cal' => lc_cal_cita($db, $neg, $s['nombre'], $equipo[$elegido], $fecha, lc_hhmm($hora), (int)$s['duracion'])]);
 }
 
