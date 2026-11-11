@@ -35,10 +35,16 @@ a{color:var(--violeta-osc)}
 :focus-visible{outline:3px solid var(--violeta);outline-offset:3px;border-radius:6px}
 .envoltura{max-width:1080px;margin:0 auto;padding:0 22px}
 
-/* Barra superior */
-.barra{display:flex;justify-content:space-between;align-items:center;padding:18px 0}
-.barra img{height:36px;display:block}
-.barra a.entrar{font-weight:600;font-size:15px;text-decoration:none;padding:8px 4px}
+/* Barra superior: fija, con Suscribirme siempre a la vista */
+.cabecera{position:sticky;top:0;z-index:10;background:rgba(247,247,251,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid transparent}
+.cabecera.baja{border-bottom-color:var(--linea)}
+.barra{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;gap:12px}
+.barra img{height:34px;display:block}
+.barra nav{display:flex;align-items:center;gap:8px}
+.barra a.entrar{font-weight:600;font-size:15px;text-decoration:none;padding:8px 10px}
+.barra a.suscribir{background:var(--violeta);color:#fff;font-weight:600;font-size:15px;text-decoration:none;padding:9px 18px;border-radius:12px}
+.barra a.suscribir:hover{background:var(--violeta-osc)}
+.icono{display:block;width:76px;height:76px;margin-bottom:22px}
 
 /* Portada */
 .portada{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;padding:40px 0 72px}
@@ -117,6 +123,11 @@ footer{border-top:1px solid var(--linea);padding:28px 0 40px;font-size:14px;colo
 footer .envoltura{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 footer nav a{margin-left:18px}
 
+@media (max-width:420px){
+  .barra a.entrar{padding:8px 6px}
+  .barra a.suscribir{padding:9px 14px}
+  .barra img{height:30px}
+}
 @media (max-width:860px){
   .portada{grid-template-columns:1fr;gap:56px;padding:20px 0 64px}
   .agenda{justify-self:start;max-width:none;padding-bottom:112px}
@@ -134,12 +145,25 @@ footer nav a{margin-left:18px}
 <script>document.documentElement.classList.add('js')</script>
 </head><body>
 
+<header class="cabecera" id="cabecera"><div class="envoltura barra">
+  <a href="./" aria-label="LuniCitas, inicio"><img src="logo.svg?v=3" alt="lunicitas"></a>
+  <nav aria-label="Cuenta"><a class="entrar" href="entrar">Entrar</a><a class="suscribir" href="registro">Suscribirme</a></nav>
+</div></header>
+
 <div class="envoltura">
-  <div class="barra"><a href="./" aria-label="LuniCitas, inicio"><img src="logo.svg?v=3" alt="lunicitas"></a><a class="entrar" href="entrar">Entrar</a></div>
 
   <main>
   <div class="portada">
     <div>
+      <svg class="icono" viewBox="0 0 76 76" role="img" aria-label="Calendario con una cita nueva">
+        <rect x="6" y="12" width="56" height="54" rx="12" fill="#fff" stroke="#1d1b2e" stroke-width="3"/>
+        <path d="M6 24a12 12 0 0 1 12-12h32a12 12 0 0 1 12 12v4H6z" fill="#7b5cff" stroke="#1d1b2e" stroke-width="3" stroke-linejoin="round"/>
+        <rect x="19" y="5" width="5" height="13" rx="2.5" fill="#1d1b2e"/><rect x="44" y="5" width="5" height="13" rx="2.5" fill="#1d1b2e"/>
+        <rect x="15" y="36" width="9" height="8" rx="2.5" fill="#e4e2ee"/><rect x="29" y="36" width="9" height="8" rx="2.5" fill="#efeaff" stroke="#7b5cff" stroke-width="2"/><rect x="43" y="36" width="9" height="8" rx="2.5" fill="#e4e2ee"/>
+        <rect x="15" y="49" width="9" height="8" rx="2.5" fill="#e4e2ee"/><rect x="29" y="49" width="9" height="8" rx="2.5" fill="#e4e2ee"/>
+        <circle cx="56" cy="56" r="16" fill="#1fd1c1" stroke="#1d1b2e" stroke-width="3"/>
+        <path d="M56 48v16M48 56h16" stroke="#1d1b2e" stroke-width="3.4" stroke-linecap="round"/>
+      </svg>
       <h1>Tus clientes reservan solos, a cualquier hora.</h1>
       <p class="bajada">LuniCitas es la agenda en línea para barberías, salones de belleza y centros de estética. Compartes tu enlace, tus clientes eligen servicio, persona y hora, y la cita aparece en tu agenda. Sin llamadas, sin mensajes.</p>
       <div class="acciones">
@@ -232,6 +256,7 @@ footer nav a{margin-left:18px}
   <nav aria-label="Legal"><a href="terminos">Términos y condiciones</a><a href="privacidad">Política de privacidad</a></nav></div></footer>
 
 <script>
+(function () { var c = document.getElementById('cabecera'); function f() { c.classList.toggle('baja', window.scrollY > 8); } f(); window.addEventListener('scroll', f, { passive: true }); })();
 // Un solo momento animado: las citas entran una a una en la agenda y llega el aviso de la nueva cita.
 (function () {
   var citas = document.querySelectorAll('.agenda .cita'), aviso = document.querySelector('.agenda .aviso');
