@@ -2,7 +2,7 @@
 // LuniCitas — funciones compartidas por api.php, admin.php, install.php y recordatorios.php
 // Licencia AGPL-3.0
 
-const LC_VERSION_BD = 6;
+const LC_VERSION_BD = 7;
 const LC_STRIPE_VERSION = '2026-10-28.endive'; // versión fija de la API de Stripe
 const LC_DIAS_PRUEBA = 3; // días de prueba gratis; después la cuenta se cierra hasta que pague
 const LC_TIPOS = ['barberia' => 'Barbería', 'salon' => 'Salón de belleza', 'estetica' => 'Estética / spa'];
@@ -66,7 +66,7 @@ function lc_migrar($db) {
     tipo VARCHAR(12) NOT NULL DEFAULT 'barberia', direccion VARCHAR(120) NOT NULL DEFAULT '',
     telefono VARCHAR(20) NOT NULL DEFAULT '', prefijo VARCHAR(4) NOT NULL DEFAULT '1',
     descripcion VARCHAR(300) NOT NULL DEFAULT '', foto VARCHAR(255) NOT NULL DEFAULT '',
-    usuario VARCHAR(40) NOT NULL UNIQUE, clave_hash VARCHAR(255) NOT NULL,
+    usuario VARCHAR(120) NOT NULL UNIQUE, clave_hash VARCHAR(255) NOT NULL,
     zona VARCHAR(40) NOT NULL DEFAULT 'America/Puerto_Rico', moneda VARCHAR(4) NOT NULL DEFAULT '$',
     intervalo INT NOT NULL DEFAULT 15, horario TEXT NOT NULL, activo TINYINT NOT NULL DEFAULT 1,
     creado TIMESTAMP DEFAULT CURRENT_TIMESTAMP) CHARACTER SET utf8mb4");
@@ -129,6 +129,13 @@ function lc_migrar($db) {
       $db->prepare('UPDATE citas SET duracion = ?, precio = ? WHERE servicio = ? AND precio = 0')->execute([$d, $p, $n]);
     }
   }
+  // Versión 7: el usuario puede ser un correo; cuentas de Google o Microsoft conectadas a cada negocio
+  if ($ver >= 1 && $ver < 7) $db->exec('ALTER TABLE negocios MODIFY usuario VARCHAR(120) NOT NULL');
+  $db->exec("CREATE TABLE IF NOT EXISTS identidades (
+    id INT AUTO_INCREMENT PRIMARY KEY, negocio_id INT NOT NULL, proveedor VARCHAR(20) NOT NULL, sub VARCHAR(255) NOT NULL,
+    email VARCHAR(190) NOT NULL DEFAULT '', creada TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY (proveedor, sub), KEY (negocio_id)) CHARACTER SET utf8mb4");
+
   // Versión 6: ya no hay plan gratis para siempre. Los negocios que estaban en gratis o con la prueba vencida
   // reciben 3 días de aviso antes de que su cuenta se cierre.
   if ($ver >= 3 && $ver < 6) {
@@ -288,3 +295,29 @@ function lc_stripe_firma_valida($payload, $cabecera, $secreto, $tolerancia = 300
   foreach ($firmas as $f) if (hash_equals($esperada, $f)) return true;
   return false;
 }
+
+// ── Entrar con Google o Microsoft (OpenID Connect) ──────
+// Se activa con $GOOGLE_CLIENT_ID + $GOOGLE_CLIENT_SECRET y/o $MICROSOFT_CLIENT_ID + $MICROSOFT_CLIENT_SECRET en config.php.
+const LC_OAUTH = [
+  'google' => ['nombre' => 'Google', 'cfg' => 'GOOGLE',
+    'auth' => 'https://accounts.google.com/o/oauth2/v2/auth', 'token' => 'https://oauth2.googleapis.com/token'],
+  'microsoft' => ['nombre' => 'Microsoft', 'cfg' => 'MICROSOFT',
+    'auth' => 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize', 'token' => 'https://login.microsoftonline.com/common/oauth2/v2.0/token'],
+];
+function lc_oauth_activos() {
+  $r = [];
+  foreach (LC_OAUTH as $k => $p) if (lc_cfg($p['cfg'] . '_CLIENT_ID') && lc_cfg($p['cfg'] . '_CLIENT_SECRET')) $r[$k] = $p;
+  return $r;
+}
+// Botones "Continuar con …". $para: entrar, registro o conectar.
+function lc_oauth_botones($para, $texto = 'Continuar con') {
+  $ico = [
+    'google' => '<svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>',
+    'microsoft' => '<svg viewBox="0 0 21 21" width="18" height="18" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg>',
+  ];
+  $html = '';
+  foreach (lc_oauth_activos() as $k => $p)
+    $html .= '<a class="oauth" href="oauth.php?p=' . $k . '&amp;para=' . $para . '">' . $ico[$k] . '<span>' . htmlspecialchars($texto . ' ' . $p['nombre']) . '</span></a>';
+  return $html;
+}
+const LC_OAUTH_CSS = '.oauth{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border-radius:12px;border:2px solid #e4e2ee;background:#fff;color:#1d1b2e;font-weight:600;font-size:15px;text-decoration:none;margin-bottom:8px}.oauth:hover{border-color:#7b5cff}.oauth:focus-visible{outline:3px solid #7b5cff;outline-offset:2px}.o-sep{display:flex;align-items:center;gap:10px;color:#8a88a0;font-size:13px;margin:10px 0 12px}.o-sep::before,.o-sep::after{content:"";flex:1;height:1px;background:#e4e2ee}';

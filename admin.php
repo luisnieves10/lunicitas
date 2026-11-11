@@ -24,7 +24,7 @@ $MC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 $ZONAS = ['America/Puerto_Rico','America/Santo_Domingo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
   'America/Mexico_City','America/Guatemala','America/Panama','America/Bogota','America/Lima','America/Caracas','America/La_Paz',
   'America/Santiago','America/Argentina/Buenos_Aires','America/Sao_Paulo','Europe/Madrid','Europe/Lisbon'];
-$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio'];
+$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth'];
 $ip = lc_ip();
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $super = !empty($_SESSION['super']);
@@ -225,10 +225,17 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $db->prepare('DELETE FROM dias_libres WHERE id = ? AND negocio_id = ?')->execute([$id, $nid]); ir('negocio');
   }
   if ($a === 'clave') {
-    if (!password_verify((string)($_POST['actual'] ?? ''), $neg['clave_hash'])) ir('negocio', null, 'La contraseña actual no es correcta.');
+    // Quien se registró con Google o Microsoft no tiene contraseña: la crea sin pedir la actual.
+    if ($neg['clave_hash'] !== '' && !password_verify((string)($_POST['actual'] ?? ''), $neg['clave_hash'])) ir('negocio', null, 'La contraseña actual no es correcta.');
     if (strlen($_POST['nueva'] ?? '') < 8) ir('negocio', null, 'La contraseña nueva debe tener al menos 8 caracteres.');
     $db->prepare('UPDATE negocios SET clave_hash = ? WHERE id = ?')->execute([password_hash($_POST['nueva'], PASSWORD_DEFAULT), $nid]);
-    ir('negocio', null, 'Contraseña cambiada.');
+    ir('negocio', null, $neg['clave_hash'] === '' ? 'Contraseña creada. Ya puedes entrar también con tu usuario: ' . $neg['usuario'] : 'Contraseña cambiada.');
+  }
+  if ($a === 'id_quitar') {
+    $q = $db->prepare('SELECT COUNT(*) FROM identidades WHERE negocio_id = ?'); $q->execute([$nid]);
+    if ($neg['clave_hash'] === '' && $q->fetchColumn() <= 1) ir('negocio', null, 'Crea una contraseña antes de quitar tu única forma de entrar.');
+    $db->prepare('DELETE FROM identidades WHERE id = ? AND negocio_id = ?')->execute([$id, $nid]);
+    ir('negocio', null, 'Cuenta desconectada.');
   }
 
   // Pagos con Stripe
@@ -418,7 +425,7 @@ function fotoPeq($f, $txt) { return $f ? '<img class="mini" src="' . e($f) . '" 
 ?>
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex"><title>LuniCitas – Portal</title><link rel="icon" href="logo.svg?v=3">
+<meta name="robots" content="noindex"><title>LuniCitas – Portal</title><link rel="icon" href="logo.svg?v=3"><meta name="theme-color" content="#7b5cff"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="assets/app/apple-touch-icon.png"><meta name="apple-mobile-web-app-title" content="LuniCitas"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><script src="assets/app/instalar.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--m:#7b5cff;--g:linear-gradient(90deg,#7b5cff,#1fd1c1)}
@@ -459,17 +466,22 @@ details.item form{padding:0 12px 12px}.price{color:var(--m);font-weight:700}
 .hor .desc{grid-column:2/4;display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;align-items:center;font-size:12px;color:#8a88a0;margin-bottom:8px}
 .enlace{background:#f1edff;border-radius:12px;padding:10px;font-size:14px;word-break:break-all;margin-bottom:10px}
 table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,table.lista th{padding:8px 6px;border-bottom:1px solid #eee;text-align:left}
+.instalar{display:flex;align-items:center;gap:12px;width:100%;background:#fff;border:2px dashed #cfc6ff;border-radius:16px;padding:12px 14px;margin-bottom:12px;font:inherit;font-size:14px;color:#1d1b2e;text-align:left;cursor:pointer}.instalar img{width:40px;height:40px;border-radius:10px}.instalar b{display:block;font-size:15px}.instalar[hidden]{display:none}
 .plan-prueba{color:#b25e00!important}.plan-cerrado{color:#c0392b!important}
 .ck{display:flex;gap:6px;align-items:center;font-size:14px;margin-bottom:10px}.ck input{width:auto;margin:0}
 @media print{.noprint{display:none!important}body{background:#fff}.box,.stat{box-shadow:none;border:1px solid #ddd}}
+<?= LC_OAUTH_CSS ?>
 </style></head><body><div class="app">
 <?php if (!$admin): ?>
   <div class="top"><img src="logo.svg?v=3" alt="lunicitas"></div>
   <div class="box" style="max-width:420px;margin:0 auto"><h2 style="margin-bottom:14px">Portal del dueño</h2>
     <?php if ($error): ?><p class="err"><?= e($error) ?></p><?php endif; ?>
+    <?php if ($aviso): ?><p class="err" style="background:#efeaff;color:#3a2a99"><?= e($aviso) ?></p><?php endif; ?>
+    <?php if ($b = lc_oauth_botones('entrar')): ?><?= $b ?><div class="o-sep">o con tu usuario</div><?php endif; ?>
     <form method="post"><input name="u" placeholder="Usuario" autocomplete="username" required>
     <input name="p" type="password" placeholder="Contraseña" autocomplete="current-password" required>
     <button class="btn" style="width:100%">Entrar</button></form>
+    <button type="button" class="instalar" data-instalar hidden style="margin-top:14px"><img src="assets/app/icono-192.png" alt=""><span><b>Instala la app en tu celular</b>Entra a tu agenda con un toque desde la pantalla de inicio.</span></button>
     <?php if (lc_registro_abierto($db)): ?><p style="text-align:center;margin-top:14px;font-size:14px;color:#6b6980">¿Tienes un negocio? <a href="registro.php" style="color:#7b5cff;font-weight:600">Crea tu cuenta gratis</a></p><?php endif; ?></div>
 <?php else: ?>
   <div class="top"><img src="logo.svg?v=3" alt="lunicitas"><span class="neg"><b><?= e($neg['nombre']) ?></b> · <a href="<?= e($base . '/' . $neg['slug']) ?>" target="_blank">ver página</a> · <a href="?v=plan" class="plan-<?= $PLAN['clave'] ?>"><?= e($PLAN_NOMBRE[$PLAN['clave']]) ?><?= $PLAN['dias'] ? ': ' . $PLAN['dias'] . ' días' : '' ?></a></span><a class="noprint" href="?salir=1">Salir</a></div>
@@ -477,6 +489,7 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
     <?php foreach ($VISTAS as $k => $n): ?><a class="<?= $v === $k ? 'on' : '' ?>" href="<?= e(url($k)) ?>"><?= $n ?></a><?php endforeach; ?>
   </div>
   <?php if ($aviso): ?><div class="aviso noprint"><?= e($aviso) ?></div><?php endif; ?>
+  <?php if ($v === 'dia'): ?><button type="button" class="instalar noprint" data-instalar hidden><img src="assets/app/icono-192.png" alt=""><span><b>Instala LuniCitas en tu celular</b>Tu agenda a un toque, como cualquier otra app. Es gratis y no ocupa espacio.</span></button><?php endif; ?>
   <?php if ($PLAN['clave'] === 'prueba' && $v !== 'plan'): ?><div class="alerta noprint">⏳ Tu prueba gratis termina en <b><?= $PLAN['dias'] ?> <?= $PLAN['dias'] == 1 ? 'día' : 'días' ?></b>. Después tu cuenta se cierra y tu página deja de recibir reservas hasta que añadas tu tarjeta. <a href="?v=plan">Añadir tarjeta</a></div><?php endif; ?>
   <?php if ($porRecordar && !($v === 'dia' && $fecha === $manana) && in_array($v, ['dia', 'semana'], true)): ?>
     <div class="alerta noprint">🔔 Mañana hay <?= $porRecordar ?> cita<?= $porRecordar > 1 ? 's' : '' ?> sin recordar. <a href="<?= e(url('dia', $manana)) ?>">Enviar recordatorios</a></div>
@@ -644,11 +657,25 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
           <div><label>Motivo (opcional)</label><input name="motivo" maxlength="80" placeholder="Ej. Feriado"></div></div>
         <button class="btn" name="accion" value="libre_add">Añadir día libre</button></form></div>
 
-    <div class="box"><h3>🔒 Cambiar contraseña del portal</h3>
+    <?php $q = $db->prepare('SELECT id, proveedor, email FROM identidades WHERE negocio_id = ? ORDER BY id'); $q->execute([$neg['id']]); $ids = $q->fetchAll();
+          $PROVN = ['google' => 'Google', 'microsoft' => 'Microsoft']; $sinClave = $neg['clave_hash'] === ''; ?>
+    <?php if ($ids || lc_oauth_activos()): ?>
+    <div class="box"><h3>🔑 Formas de entrar</h3>
+      <p style="font-size:14px;color:#6b6980;margin-bottom:10px"><?= $sinClave ? 'Entras con tu cuenta conectada.' : 'Usuario: <b>' . e($neg['usuario']) . '</b> con tu contraseña.' ?> Conecta Google o Microsoft para entrar con un toque.</p>
+      <?php foreach ($ids as $i): ?>
+        <form method="post" action="<?= e(url('negocio')) ?>" class="fila" style="margin-bottom:8px"><?= $csrf ?><input type="hidden" name="id" value="<?= (int)$i['id'] ?>">
+          <span style="flex:1;font-size:14px">✓ <b><?= e($PROVN[$i['proveedor']] ?? $i['proveedor']) ?></b> <?= e($i['email']) ?></span>
+          <button class="btn gris" name="accion" value="id_quitar" style="padding:6px 12px;font-size:13px" onclick="return confirm('¿Desconectar esta cuenta?')">Quitar</button></form>
+      <?php endforeach; ?>
+      <?= lc_oauth_botones('conectar', 'Conectar') ?></div>
+    <?php endif; ?>
+
+    <div class="box"><h3>🔒 <?= $sinClave ? 'Crear una contraseña (opcional)' : 'Cambiar contraseña del portal' ?></h3>
+      <?php if ($sinClave): ?><p style="font-size:14px;color:#6b6980;margin-bottom:10px">Así podrás entrar también con tu usuario <b><?= e($neg['usuario']) ?></b> si algún día no tienes acceso a tu cuenta conectada.</p><?php endif; ?>
       <form method="post" action="<?= e(url('negocio')) ?>"><?= $csrf ?>
-        <div class="grid2"><div><label>Actual</label><input type="password" name="actual" autocomplete="current-password" required></div>
+        <div class="grid2"><?php if (!$sinClave): ?><div><label>Actual</label><input type="password" name="actual" autocomplete="current-password" required></div><?php endif; ?>
           <div><label>Nueva (mínimo 8)</label><input type="password" name="nueva" minlength="8" autocomplete="new-password" required></div></div>
-        <button class="btn" name="accion" value="clave">Cambiar</button></form></div>
+        <button class="btn" name="accion" value="clave"><?= $sinClave ? 'Crear contraseña' : 'Cambiar' ?></button></form></div>
 
   <?php elseif ($v === 'plan'): $precio = lc_cfg('PLAN_PRECIO', '$20 al mes'); $pagado = $neg['plan'] === 'pro' && $neg['stripe_sub']; ?>
     <?php if ($neg['stripe_estado'] === 'past_due'): ?><div class="alerta">⚠️ No pudimos cobrar tu último pago. Stripe lo volverá a intentar; para no perder el plan Pro, toca <b>Administrar pago</b> y actualiza tu tarjeta.</div><?php endif; ?>

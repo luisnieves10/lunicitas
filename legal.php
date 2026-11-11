@@ -129,6 +129,7 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <ul>
   <li><b>De los negocios:</b> nombre del negocio y de la persona, correo, usuario, contraseña (guardada cifrada, nunca en texto), dirección, teléfono, horario, servicios, precios, nombres y fotos del equipo.</li>
   <li><b>De los clientes que reservan:</b> nombre, teléfono, servicio, persona elegida, fecha y hora de la cita e idioma. No pedimos cuenta ni contraseña.</li>
+  <li><b>Si entras con Google o Microsoft:</b> recibimos de ellos tu nombre, tu correo y un identificador de tu cuenta, solo para reconocerte cuando entras. No recibimos tu contraseña ni accedemos a tu correo, tus contactos ni tus archivos.</li>
   <li><b>De pagos:</b> el identificador de cliente y de suscripción de Stripe y el estado del pago. Los datos de la tarjeta los recibe y guarda solo Stripe; nunca pasan por nuestros servidores.</li>
   <li><b>Técnicos:</b> una cookie de sesión necesaria para mantenerte conectado en el portal, y una huella cifrada de la dirección IP para frenar abusos (intentos de acceso y registros repetidos). No usamos cookies de publicidad ni herramientas de rastreo.</li>
 </ul>
@@ -146,6 +147,7 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <h2>4. Con quién los compartimos</h2>
 <ul>
   <li><b>El negocio</b> donde reservas ve tus datos de la cita.</li>
+  <li><b>Google y Microsoft</b>, solo si eliges entrar con ellos: confirman quién eres según sus propias políticas de privacidad.</li>
   <li><b>Stripe</b>, para procesar los pagos del plan Pro (<a href="https://stripe.com/es-us/privacy" target="_blank" rel="noopener">su política de privacidad</a>).</li>
   <li><b>Nuestro proveedor de alojamiento web</b>, que guarda la base de datos.</li>
   <li><b>WhatsApp (Meta)</b>, solo si el negocio activa los recordatorios automáticos: se envían el nombre, la fecha, la hora y el servicio de la cita al teléfono del cliente.</li>

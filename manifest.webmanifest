@@ -1,0 +1,21 @@
+{
+  "name": "LuniCitas",
+  "short_name": "LuniCitas",
+  "description": "Tu agenda en línea: citas, servicios y equipo de tu negocio.",
+  "lang": "es",
+  "start_url": "admin.php?app=1",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f7fb",
+  "theme_color": "#7b5cff",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "assets/app/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app/icono-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Agenda de hoy", "url": "admin.php?v=dia", "icons": [{ "src": "assets/app/icono-192.png", "sizes": "192x192" }] }
+  ]
+}

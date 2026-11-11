@@ -7,6 +7,14 @@ DirectoryIndex inicio.php index.html
   Require all denied
 </FilesMatch>
 
+# App instalable
+AddType application/manifest+json .webmanifest
+<IfModule mod_headers.c>
+  <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
 # El logo y los iconos se revisan siempre, para que el navegador no muestre uno viejo
 <IfModule mod_headers.c>
   <FilesMatch "\.(svg|ico)$">

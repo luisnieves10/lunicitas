@@ -72,6 +72,24 @@ Cómo funciona: si un negocio en prueba pasa a Pro, no se le cobra hasta que ter
 
 Las instalaciones nuevas empiezan con el registro público cerrado y todos los negocios en Pro: si la usas solo para tu negocio, no tienes que configurar nada de esto.
 
+### Entrar con Google y Microsoft (opcional)
+
+Los dueños pueden entrar o crear su cuenta con Google (Gmail) o Microsoft (Outlook, Hotmail), además de usuario y contraseña. La dirección de regreso es `https://TU-DOMINIO/oauth.php`.
+
+- **Google:** en [Google Cloud Console](https://console.cloud.google.com/) → APIs y servicios → Pantalla de consentimiento (tipo Externo) y luego Credenciales → Crear ID de cliente de OAuth → Aplicación web, con `https://TU-DOMINIO/oauth.php` como URI de redireccionamiento autorizado.
+- **Microsoft:** en [Microsoft Entra](https://entra.microsoft.com/) → Registros de aplicaciones → Nuevo registro, con “Cuentas de cualquier directorio organizativo y cuentas personales de Microsoft” y la dirección de redirección (Web) `https://TU-DOMINIO/oauth.php`. Luego crea un secreto en Certificados y secretos.
+- Añade a `config.php`:
+  ```php
+  $GOOGLE_CLIENT_ID = '…'; $GOOGLE_CLIENT_SECRET = '…';
+  $MICROSOFT_CLIENT_ID = '…'; $MICROSOFT_CLIENT_SECRET = '…';
+  ```
+
+Los botones aparecen solos cuando sus datos están en `config.php`.
+
+### App en el celular
+
+LuniCitas se instala como app desde el navegador (Android: aviso “Instalar”; iPhone: Compartir → Añadir a pantalla de inicio), con icono, pantalla completa y una página para cuando no hay conexión (`manifest.webmanifest`, `sw.js`).
+
 ### Recordatorios automáticos por WhatsApp (opcional)
 
 El botón **Recordar por WhatsApp** del portal funciona sin configurar nada. Si además quieres que salgan solos el día antes:
@@ -96,6 +114,8 @@ El botón **Recordar por WhatsApp** del portal funciona sin configurar nada. Si 
 | `lib.php` | Funciones compartidas y actualización de la base de datos |
 | `registro.php` | Registro de negocios nuevos con prueba gratis |
 | `stripe.php` | Recibe los avisos de pago de Stripe |
+| `oauth.php` | Entrar con Google o Microsoft |
+| `inicio.php` | Página principal |
 | `legal.php` | Términos y condiciones y Política de privacidad (pon tus datos en `config.php`: `$LEGAL_NOMBRE`, `$LEGAL_EMAIL`, `$LEGAL_LUGAR`) |
 | `recordatorios.php` | Recordatorios automáticos (opcional, por cron) |
 

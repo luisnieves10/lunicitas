@@ -21,7 +21,7 @@ $demoUrl = $demo ? $demo['slug'] : '';
 <meta name="description" content="Tu agenda en línea: tus clientes reservan solos desde el celular, a cualquier hora. Prueba <?= $dias ?> días gratis, sin tarjeta.">
 <meta property="og:title" content="LuniCitas: tus clientes reservan solos">
 <meta property="og:description" content="Agenda en línea para barberías, salones y centros de estética. Prueba <?= $dias ?> días gratis, sin tarjeta.">
-<meta property="og:image" content="docs/reservas.png"><meta name="theme-color" content="#7b5cff">
+<meta property="og:image" content="docs/reservas.png"><meta name="theme-color" content="#7b5cff"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="assets/app/apple-touch-icon.png"><meta name="apple-mobile-web-app-title" content="LuniCitas"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><script src="assets/app/instalar.js" defer></script>
 <link rel="icon" href="logo.svg?v=3"><link rel="preload" href="assets/fonts/poppins-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 @font-face{font-family:Poppins;font-weight:400;font-display:swap;src:url(assets/fonts/poppins-latin-400-normal.woff2) format('woff2')}
@@ -56,6 +56,9 @@ h1{font-size:clamp(2.3rem,5.4vw,3.9rem);line-height:1.05;font-weight:800;letter-
 .boton.claro{background:transparent;color:var(--tinta);box-shadow:inset 0 0 0 2px var(--linea)}
 .boton.claro:hover{box-shadow:inset 0 0 0 2px var(--violeta);background:transparent}
 .nota{font-size:14px;color:var(--gris);margin-top:14px}
+.instalar{display:inline-flex;align-items:center;gap:10px;margin-top:22px;background:none;border:0;padding:0;font:600 15px Poppins,system-ui,sans-serif;color:var(--violeta-osc);cursor:pointer}
+.instalar img{width:34px;height:34px;border-radius:9px}
+.instalar[hidden]{display:none}
 
 /* La agenda que se llena: el momento memorable */
 .agenda{background:#fff;border-radius:28px;padding:22px 22px 92px;box-shadow:0 30px 60px -30px rgba(29,27,46,.35),0 0 0 1px var(--linea);position:relative;max-width:420px;justify-self:end;width:100%}
@@ -171,6 +174,7 @@ footer nav a{margin-left:18px}
         <?php if ($demoUrl): ?><a class="boton claro" href="<?= e($demoUrl) ?>">Ver un ejemplo</a><?php endif; ?>
       </div>
       <p class="nota"><?= $dias ?> días gratis, sin tarjeta. Lista en 2 minutos.</p>
+      <button type="button" class="instalar" data-instalar hidden><img src="assets/app/icono-192.png" alt="">Instalar la app en mi celular</button>
     </div>
 
     <div class="agenda" aria-label="Ejemplo de agenda del día que se llena con reservas">
@@ -204,6 +208,7 @@ footer nav a{margin-left:18px}
       <li><b>Recordatorio por WhatsApp</b><span>Un toque y le llega a tu cliente un mensaje ya escrito con su cita, para que no se le olvide.</span></li>
       <li><b>Todo tu equipo</b><span>Cada persona con su foto, su especialidad y sus días libres. O deja que el cliente elija “cualquiera”.</span></li>
       <li><b>Cuentas claras cada mes</b><span>Ingresos, servicios más pedidos, asistencia y días más ocupados, con descarga a Excel y PDF.</span></li>
+      <li><b>App para iPhone y Android</b><span>Instálala desde el navegador con un toque y abre tu agenda desde la pantalla de inicio, sin pasar por tiendas.</span></li>
       <li><b>En español, inglés y portugués</b><span>Tus clientes ven la página en su idioma, con horario de 12 o 24 horas.</span></li>
     </ul>
     <p class="para">Hecho para barberías, salones de belleza y centros de estética.</p>
