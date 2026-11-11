@@ -19,9 +19,11 @@ h2{font-size:18px;margin:22px 0 12px}.steps{display:flex;gap:6px;margin-top:10px
 .day.sel{background:var(--g);color:#fff}.day small{color:inherit;opacity:.7;display:block;font-size:11px}
 .hours{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.hour{background:#fff;border-radius:14px;padding:12px 0;text-align:center;cursor:pointer;border:2px solid transparent;box-shadow:0 2px 10px rgba(0,0,0,.05)}
 .hour.sel{background:var(--g);color:#fff}.hour.off{opacity:.35;pointer-events:none;text-decoration:line-through;box-shadow:none}
+.msg{grid-column:1/-1;color:#8a88a0;text-align:center}
 input{width:100%;padding:15px;border-radius:16px;border:2px solid #e4e2ee;background:#fff;color:#1d1b2e;font-size:16px;margin-bottom:10px;font-family:inherit;outline:none}input:focus{border-color:var(--m)}
 .btn{width:100%;padding:17px;border:none;border-radius:18px;background:var(--g);color:#fff;font-weight:700;font-size:17px;margin-top:16px;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(123,92,255,.3)}
 .btn:disabled{opacity:.35;box-shadow:none}.back{background:none;color:#8a88a0;font-size:14px;margin-top:6px;box-shadow:none}
+.err{color:#e5484d;font-size:14px;min-height:20px;margin-top:6px}
 .sum{background:#fff;border-radius:18px;padding:16px;line-height:1.9;box-shadow:0 2px 10px rgba(0,0,0,.05)}.ok{text-align:center;padding-top:30px}.ok .c{font-size:64px}
 .hide{display:none}.info{display:flex;gap:14px;color:#8a88a0;font-size:13px;margin-top:14px}
 </style></head><body><div class="app">
@@ -38,8 +40,9 @@ input{width:100%;padding:15px;border-radius:16px;border:2px solid #e4e2ee;backgr
 <button class="btn" id="b2" disabled onclick="go(3)">Continuar</button><button class="btn back" onclick="go(1)">← Atrás</button></section>
 <section id="s3" class="hide"><div class="steps"><span class="on"></span><span class="on"></span><span class="on"></span></div>
 <h2>Confirma tu cita</h2><div class="sum" id="sum"></div><h2>Tus datos</h2>
-<input id="nm" placeholder="Tu nombre" oninput="chk()"><input id="ph" type="tel" placeholder="Tu teléfono (WhatsApp)" oninput="chk()">
-<button class="btn" id="b3" disabled onclick="go(4)">Confirmar reserva</button><button class="btn back" onclick="go(2)">← Atrás</button></section>
+<input id="nm" maxlength="80" placeholder="Tu nombre" oninput="chk()"><input id="ph" type="tel" maxlength="20" placeholder="Tu teléfono (WhatsApp)" oninput="chk()">
+<p class="err" id="err"></p>
+<button class="btn" id="b3" disabled onclick="reservar()">Confirmar reserva</button><button class="btn back" onclick="go(2)">← Atrás</button></section>
 <section id="s4" class="hide ok"><div class="c">🎉</div><h2>¡Listo, <span id="who"></span>!</h2>
 <p style="color:#6b6980">Tu cita quedó reservada. Te enviaremos un recordatorio por WhatsApp.</p><div class="sum" id="sum2" style="margin-top:18px;text-align:left"></div>
 <button class="btn" onclick="location.reload()">Volver al inicio</button></section>
@@ -47,18 +50,30 @@ input{width:100%;padding:15px;border-radius:16px;border:2px solid #e4e2ee;backgr
 <script>
 const S=[["Corte clásico","30 min",12],["Corte + barba","45 min",18],["Fade / degradado","40 min",15],["Arreglo de barba","20 min",8]];
 const B=[["Carlos","Especialista en fades","https://i.pravatar.cc/100?img=12"],["Miguel","Cortes clásicos","https://i.pravatar.cc/100?img=33"],["Andrés","Barbas y diseños","https://i.pravatar.cc/100?img=59"],["Cualquiera","El primero disponible","https://i.pravatar.cc/100?img=68"]];
+const H=['9:00','9:45','10:30','11:15','12:00','14:00','14:45','15:30','16:15','17:00','17:45','18:30'];
+const dn=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 let st={};const $=i=>document.getElementById(i);
-function go(n){for(let i=0;i<5;i++)$('s'+i).classList.toggle('hide',i!==n);window.scrollTo(0,0);if(n>=3)fill()}
+function go(n){for(let i=0;i<5;i++)$('s'+i).classList.toggle('hide',i!==n);window.scrollTo(0,0);if(n==2)initDays();if(n>=3)fill()}
+function iso(x){return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
 $('svc').innerHTML=S.map((s,i)=>`<div class="card" onclick="pick('svc',${i},this)"><div class="t"><b>${s[0]}</b><small>${s[1]}</small></div><span class="price">$${s[2]}</span></div>`).join('');
 $('brb').innerHTML=B.map((b,i)=>`<div class="card" onclick="pick('brb',${i},this)"><img src="${b[2]}"><div class="t"><b>${b[0]}</b><small>${b[1]}</small></div></div>`).join('');
-const dn=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];let d=new Date();let dh='';
-for(let i=0;i<7;i++){let x=new Date(d);x.setDate(d.getDate()+i);dh+=`<div class="day" onclick="pick('day',${i},this)" data-l="${i==0?'Hoy':dn[x.getDay()]} ${x.getDate()}"><small>${i==0?'Hoy':dn[x.getDay()]}</small><b>${x.getDate()}</b></div>`}
-$('days').innerHTML=dh;
-function hours(){let h=['9:00','9:45','10:30','11:15','12:00','14:00','14:45','15:30','16:15','17:00','17:45','18:30'];
-$('hours').innerHTML=h.map(t=>`<div class="hour ${Math.random()<.3?'off':''}" onclick="pick('hr','${t}',this)">${t}</div>`).join('')}
+function initDays(){delete st.day;delete st.hr;delete st.f;let d=new Date(),dh='';
+for(let i=0;i<7;i++){let x=new Date(d);x.setDate(d.getDate()+i);let l=(i==0?'Hoy':dn[x.getDay()]);
+dh+=`<div class="day" onclick="pick('day',${i},this)" data-f="${iso(x)}" data-l="${l} ${x.getDate()}"><small>${l}</small><b>${x.getDate()}</b></div>`}
+$('days').innerHTML=dh;$('hours').innerHTML='<p class="msg">Elige un día para ver los horarios</p>';upd()}
+async function hours(){$('hours').innerHTML='<p class="msg">Cargando horarios…</p>';let oc=[];
+try{let r=await fetch('api.php?fecha='+st.f+'&barbero='+encodeURIComponent(B[st.brb][0]));let j=await r.json();oc=j.ocupadas||[]}catch(e){}
+let now=new Date(),hoy=iso(now)===st.f,min=now.getHours()*60+now.getMinutes();
+$('hours').innerHTML=H.map(t=>{let[h,m]=t.split(':').map(Number);let off=oc.includes(t)||(hoy&&h*60+m<=min);
+return `<div class="hour ${off?'off':''}" onclick="pick('hr','${t}',this)">${t}</div>`}).join('')}
 function pick(k,v,el){el.parentNode.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');st[k]=v;
-if(k=='day'){st.dl=el.dataset.l;delete st.hr;hours()}
-$('b1').disabled=!(st.svc!=null&&st.brb!=null);$('b2').disabled=!(st.day!=null&&st.hr)}
-function chk(){$('b3').disabled=!($('nm').value.trim()&&$('ph').value.trim().length>6)}
-function fill(){let s=S[st.svc];let t=`✂️ <b>${s[0]}</b> · ${s[1]}<br>👤 Con <b>${B[st.brb][0]}</b><br>📅 <b>${st.dl}</b> a las <b>${st.hr}</b><br>💵 Total: <b class="price">$${s[2]}</b>`;$('sum').innerHTML=t;$('sum2').innerHTML=t;$('who').textContent=$('nm').value.split(' ')[0]}
+if(k=='day'){st.dl=el.dataset.l;st.f=el.dataset.f;delete st.hr;hours()}upd()}
+function upd(){$('b1').disabled=!(st.svc!=null&&st.brb!=null);$('b2').disabled=!(st.day!=null&&st.hr)}
+function chk(){$('b3').disabled=!($('nm').value.trim().length>1&&$('ph').value.replace(/[^0-9]/g,'').length>6)}
+function fill(){let s=S[st.svc];let t=`✂️ <b>${s[0]}</b> · ${s[1]}<br>👤 Con <b>${B[st.brb][0]}</b><br>📅 <b>${st.dl}</b> a las <b>${st.hr}</b><br>💵 Total: <b class="price">$${s[2]}</b>`;$('sum').innerHTML=t;$('sum2').innerHTML=t;$('who').textContent=$('nm').value.trim().split(' ')[0]}
+async function reservar(){let b=$('b3');b.disabled=true;b.textContent='Reservando…';$('err').textContent='';
+try{let r=await fetch('api.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({servicio:S[st.svc][0],barbero:B[st.brb][0],fecha:st.f,hora:st.hr,nombre:$('nm').value,telefono:$('ph').value})});
+let j=await r.json();if(r.ok){fill();go(4)}else{$('err').textContent=j.error||'No se pudo reservar'}}
+catch(e){$('err').textContent='Sin conexión, intenta de nuevo'}
+b.textContent='Confirmar reserva';chk()}
 </script></body></html>
