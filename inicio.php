@@ -18,9 +18,9 @@ $demoUrl = $demo ? $demo['slug'] : '';
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LuniCitas: reservas en línea para barberías, salones y centros de estética</title>
-<meta name="description" content="Tu agenda en línea: tus clientes reservan solos desde el celular, a cualquier hora. Prueba <?= $dias ?> días gratis, sin tarjeta.">
+<meta name="description" content="Tu agenda en línea: tus clientes reservan solos desde el celular, a cualquier hora. Prueba <?= $dias ?> días gratis.">
 <meta property="og:title" content="LuniCitas: tus clientes reservan solos">
-<meta property="og:description" content="Agenda en línea para barberías, salones y centros de estética. Prueba <?= $dias ?> días gratis, sin tarjeta.">
+<meta property="og:description" content="Agenda en línea para barberías, salones y centros de estética. Prueba <?= $dias ?> días gratis.">
 <meta property="og:image" content="docs/reservas.png"><meta name="theme-color" content="#7b5cff"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="assets/app/apple-touch-icon.png"><meta name="apple-mobile-web-app-title" content="LuniCitas"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><script src="assets/app/instalar.js" defer></script>
 <link rel="icon" href="logo.svg?v=3"><link rel="preload" href="assets/fonts/poppins-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>
@@ -173,7 +173,7 @@ footer nav a{margin-left:18px}
         <a class="boton" href="registro">Crear mi cuenta gratis</a>
         <?php if ($demoUrl): ?><a class="boton claro" href="<?= e($demoUrl) ?>">Ver un ejemplo</a><?php endif; ?>
       </div>
-      <p class="nota"><?= $dias ?> días gratis, sin tarjeta. Lista en 2 minutos.</p>
+      <p class="nota"><?= $dias ?> días gratis: no se cobra nada hasta el día <?= $dias ?>. Lista en 2 minutos.</p>
       <button type="button" class="instalar" data-instalar hidden><img src="assets/app/icono-192.png" alt="">Instalar la app en mi celular</button>
     </div>
 
@@ -219,8 +219,8 @@ footer nav a{margin-left:18px}
       <div>
         <h2>Un solo plan, todo incluido</h2>
         <div class="claves">
-          <p><b>Pruébalo <?= $dias ?> días gratis.</b> Sin tarjeta y con todas las funciones.</p>
-          <p><b>Nunca te cobramos sin tu permiso.</b> Si al terminar la prueba no añades tu tarjeta, tu cuenta se cierra sola y no pagas nada.</p>
+          <p><b>Pruébalo <?= $dias ?> días gratis</b>, con todas las funciones. Al crear tu cuenta pones tu tarjeta en Stripe y no se cobra nada hasta el día <?= $dias ?>.</p>
+          <p><b>Cancela antes del día <?= $dias ?> y no pagas nada.</b> Si prefieres no poner la tarjeta todavía, puedes usar tus días gratis igual; al terminar, la cuenta se cierra hasta que la pongas.</p>
           <p><b>Cancela cuando quieras</b> desde tu portal, sin llamadas ni penalidades.</p>
         </div>
       </div>
@@ -242,7 +242,7 @@ footer nav a{margin-left:18px}
     <h2>Preguntas frecuentes</h2>
     <div class="preguntas">
       <details><summary>¿Mis clientes tienen que descargar una app?</summary><p>No. Reservan desde el navegador de su celular o computadora, con tu enlace. No necesitan crear cuenta.</p></details>
-      <details><summary>¿Qué pasa cuando termina la prueba de <?= $dias ?> días?</summary><p>Si quieres seguir, añades tu tarjeta en la sección Plan y todo sigue igual. Si no, tu cuenta se cierra: tu página deja de recibir reservas y no se te cobra nada. Si vuelves después, tus datos siguen ahí por un tiempo (lee la Política de privacidad).</p></details>
+      <details><summary>¿Qué pasa cuando termina la prueba de <?= $dias ?> días?</summary><p>Si pusiste tu tarjeta, empieza tu plan y se cobra el primer mes. Si cancelas antes en Plan, no se te cobra nada. Si no pusiste tarjeta, tu cuenta se cierra: tu página deja de recibir reservas hasta que la pongas, y tus datos siguen ahí por un tiempo (lee la Política de privacidad).</p></details>
       <details><summary>¿Cómo cancelo?</summary><p>En tu portal, entra a Plan y toca Cancelar suscripción. No se te vuelve a cobrar y conservas todo hasta el final del mes que ya pagaste.</p></details>
       <details><summary>¿Es seguro pagar?</summary><p>Los pagos los procesa Stripe, una de las plataformas de pago más usadas del mundo. LuniCitas nunca ve ni guarda los datos de tu tarjeta.</p></details>
       <details><summary>¿Puedo usarla con todo mi equipo?</summary><p>Sí. Añade a todas las personas que quieras, cada una con su foto, especialidad y días libres.</p></details>

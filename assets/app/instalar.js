@@ -22,11 +22,13 @@
     if (!d) {
       d = document.createElement('dialog'); d.id = 'lc-ios';
       d.setAttribute('aria-labelledby', 'lc-ios-t');
-      d.innerHTML = '<h2 id="lc-ios-t">Instala LuniCitas en tu iPhone</h2><ol>' +
-        '<li>Abre esta página en <b>Safari</b>.</li>' +
-        '<li>Toca el botón <b>Compartir</b> <span aria-hidden="true">(el cuadrado con la flecha hacia arriba)</span>.</li>' +
-        '<li>Elige <b>Añadir a pantalla de inicio</b> y toca <b>Añadir</b>.</li></ol>' +
-        '<button type="button">Entendido</button>';
+      var tx = {
+        es: ['Instala la app en tu iPhone', 'Abre esta página en <b>Safari</b>.', 'Toca el botón <b>Compartir</b> <span aria-hidden="true">(el cuadrado con la flecha hacia arriba)</span>.', 'Elige <b>Añadir a pantalla de inicio</b> y toca <b>Añadir</b>.', 'Entendido'],
+        en: ['Install the app on your iPhone', 'Open this page in <b>Safari</b>.', 'Tap the <b>Share</b> button <span aria-hidden="true">(the square with the arrow pointing up)</span>.', 'Choose <b>Add to Home Screen</b> and tap <b>Add</b>.', 'Got it'],
+        pt: ['Instale o app no seu iPhone', 'Abra esta página no <b>Safari</b>.', 'Toque no botão <b>Compartilhar</b> <span aria-hidden="true">(o quadrado com a seta para cima)</span>.', 'Escolha <b>Adicionar à Tela de Início</b> e toque em <b>Adicionar</b>.', 'Entendi'],
+      }; tx = tx[(document.documentElement.lang || 'es').slice(0, 2)] || tx.es;
+      d.innerHTML = '<h2 id="lc-ios-t">' + tx[0] + '</h2><ol><li>' + tx[1] + '</li><li>' + tx[2] + '</li><li>' + tx[3] + '</li></ol>' +
+        '<button type="button">' + tx[4] + '</button>';
       d.querySelector('button').onclick = function () { d.close(); };
       var css = document.createElement('style');
       css.textContent = '#lc-ios{border:0;border-radius:20px;padding:24px;max-width:340px;width:calc(100% - 32px);margin:auto;font-family:inherit;color:#1d1b2e;box-shadow:0 30px 60px -20px rgba(29,27,46,.5)}' +

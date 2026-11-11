@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   $q = $db->prepare('SELECT fecha FROM dias_libres WHERE negocio_id = ? AND equipo_id IS NULL AND fecha >= CURDATE()');
   $q->execute([$neg['id']]);
   responder(200, [
-    'negocio' => array_intersect_key($neg, array_flip(['slug', 'nombre', 'tipo', 'direccion', 'telefono', 'descripcion', 'foto', 'moneda', 'horario'])),
+    'negocio' => array_intersect_key($neg, array_flip(['slug', 'nombre', 'tipo', 'direccion', 'telefono', 'descripcion', 'foto', 'moneda', 'horario', 'zona'])),
     'hoy' => lc_ahora($neg)->format('Y-m-d'),
     'servicios' => $servicios, 'equipo' => $equipo,
     'cerrado' => $q->fetchAll(PDO::FETCH_COLUMN),
@@ -94,7 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($db->inTransaction()) $db->rollBack();
     responder(500, ['error' => 'No se pudo guardar']);
   }
-  responder(201, ['ok' => true, 'con' => $equipo[$elegido]]);
+  responder(201, ['ok' => true, 'con' => $equipo[$elegido],
+    'cal' => lc_cal_cita($db, $neg, $s['nombre'], $equipo[$elegido], $fecha, lc_hhmm($hora), (int)$s['duracion'])]);
 }
 
 responder(405, ['error' => 'Método no permitido']);

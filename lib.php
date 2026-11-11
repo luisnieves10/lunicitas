@@ -323,3 +323,21 @@ function lc_oauth_botones($para, $texto = 'Continuar con') {
   return $html;
 }
 const LC_OAUTH_CSS = '.oauth{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border-radius:12px;border:2px solid #e4e2ee;background:#fff;color:#1d1b2e;font-weight:600;font-size:15px;text-decoration:none;margin-bottom:8px}.oauth:hover{border-color:#7b5cff}.oauth:focus-visible{outline:3px solid #7b5cff;outline-offset:2px}.o-sep{display:flex;align-items:center;gap:10px;color:#8a88a0;font-size:13px;margin:10px 0 12px}.o-sep::before,.o-sep::after{content:"";flex:1;height:1px;background:#e4e2ee}';
+
+// ── Cita en el calendario del cliente (.ics firmado) ────
+function lc_cal_clave($db) {
+  $k = lc_meta($db, 'clave_cal');
+  if (!$k) { $k = bin2hex(random_bytes(32)); lc_meta_set($db, 'clave_cal', $k); }
+  return $k;
+}
+// Datos de la cita para Google Calendar, Outlook y el archivo .ics (Apple, Android, Outlook).
+function lc_cal_cita($db, $neg, $servicio, $con, $fecha, $hora, $duracion) {
+  $z = new DateTimeZone($neg['zona'] ?: 'America/Puerto_Rico');
+  $ini = new DateTime($fecha . ' ' . $hora, $z); $fin = (clone $ini)->modify('+' . (int)$duracion . ' minutes');
+  $utc = new DateTimeZone('UTC');
+  $c = ['t' => $servicio . ' – ' . $neg['nombre'], 'i' => $ini->setTimezone($utc)->format('Ymd\THis\Z'), 'f' => $fin->setTimezone($utc)->format('Ymd\THis\Z'),
+        'l' => (string)$neg['direccion'], 'n' => 'Con ' . $con . ($neg['telefono'] ? '. Tel. ' . $neg['telefono'] : '')];
+  $d = rtrim(strtr(base64_encode(json_encode($c, JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
+  $c['ics'] = 'calendario.php?d=' . $d . '&s=' . substr(hash_hmac('sha256', $d, lc_cal_clave($db)), 0, 32);
+  return $c;
+}

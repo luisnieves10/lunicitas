@@ -24,7 +24,7 @@ $MC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 $ZONAS = ['America/Puerto_Rico','America/Santo_Domingo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
   'America/Mexico_City','America/Guatemala','America/Panama','America/Bogota','America/Lima','America/Caracas','America/La_Paz',
   'America/Santiago','America/Argentina/Buenos_Aires','America/Sao_Paulo','Europe/Madrid','Europe/Lisbon'];
-$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth'];
+$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth','calendario'];
 $ip = lc_ip();
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $super = !empty($_SESSION['super']);
@@ -119,6 +119,34 @@ function slugLibre($db, $slug, $id = 0) {
   if (!preg_match('/^[a-z0-9-]{3,40}$/', $slug) || in_array($slug, $RESERVADOS, true)) return false;
   $q = $db->prepare('SELECT COUNT(*) FROM negocios WHERE slug = ? AND id <> ?'); $q->execute([$slug, $id]);
   return !$q->fetchColumn();
+}
+// Abre el pago de Pro en Stripe Checkout. Si está en la prueba, guarda los días gratis: el primer cobro es al terminar.
+function iniciarPago($neg, $PLAN, $volver) {
+    $p = ['mode' => 'subscription', 'line_items' => [['price' => lc_cfg('STRIPE_PRICE'), 'quantity' => 1]],
+        'client_reference_id' => $neg['id'], 'metadata' => ['negocio' => $neg['id']], 'subscription_data' => ['metadata' => ['negocio' => $neg['id']]],
+        'allow_promotion_codes' => 'true', 'locale' => 'es', 'integration_identifier' => 'lunicitas-pro-qhzvtmbk',
+        'custom_text' => ['submit' => ['message' => 'Se renueva cada mes hasta que canceles. Cancela cuando quieras en LuniCitas → Plan; no se te volverá a cobrar. '
+          . 'Al pagar aceptas los Términos (' . lc_base() . '/terminos).']],
+        'success_url' => lc_base() . '/admin.php?v=plan&pago=ok', 'cancel_url' => lc_base() . '/' . $volver];
+  if ($neg['stripe_cliente']) $p['customer'] = $neg['stripe_cliente']; elseif ($neg['email']) $p['customer_email'] = $neg['email'];
+  // Si está en la prueba gratis, conserva los días que le quedan: el primer cobro es al terminar la prueba.
+  // (Stripe pide que la prueba termine al menos 2 días después de hoy.)
+  if ($PLAN['clave'] === 'prueba' && $neg['prueba_hasta']) {
+    $finPrueba = strtotime($neg['prueba_hasta'] . ' 23:59:59');
+    if ($finPrueba > time() + 2 * 86400 + 3600) {
+      $p['subscription_data']['trial_end'] = $finPrueba;
+      $p['custom_text']['submit']['message'] = 'Tus días gratis siguen: no se te cobra nada hasta el ' . date('j/n/Y', $finPrueba)
+        . '. Si cancelas antes en LuniCitas → Plan, no pagas nada. Luego se renueva cada mes hasta que canceles. Al continuar aceptas los Términos (' . lc_base() . '/terminos).';
+    }
+  }
+  $r = lc_stripe('checkout/sessions', $p);
+  if (!empty($r['url'])) { header('Location: ' . $r['url']); exit; }
+  ir('plan', null, 'No se pudo abrir el pago: ' . ($r['error']['message'] ?? 'error desconocido'));
+}
+// Recién registrado: va directo a poner la tarjeta (con sus días gratis). Si sale del pago, sigue con su prueba.
+if ($admin && !empty($_SESSION['empezar_pago'])) {
+  unset($_SESSION['empezar_pago']);
+  if (lc_stripe_activo() && $PLAN['clave'] === 'prueba' && !$neg['stripe_sub']) iniciarPago($neg, $PLAN, 'admin.php?v=negocio&sin_tarjeta=1');
 }
 // ── Acciones ────────────────────────────────────────────
 if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -243,24 +271,7 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     // Ya tiene una suscripción viva: se administra en el portal, nunca se crea una segunda.
     if ($neg['stripe_sub'] && in_array($neg['stripe_estado'], ['active', 'trialing', 'past_due'], true)) $a = 'portal';
   }
-  if ($a === 'pagar' && lc_stripe_activo()) {
-    $p = ['mode' => 'subscription', 'line_items' => [['price' => lc_cfg('STRIPE_PRICE'), 'quantity' => 1]],
-          'client_reference_id' => $nid, 'metadata' => ['negocio' => $nid], 'subscription_data' => ['metadata' => ['negocio' => $nid]],
-          'allow_promotion_codes' => 'true', 'locale' => 'es', 'integration_identifier' => 'lunicitas-pro-qhzvtmbk',
-          'custom_text' => ['submit' => ['message' => 'Se renueva cada mes hasta que canceles. Cancela cuando quieras en LuniCitas → Plan; no se te volverá a cobrar. '
-            . 'Al pagar aceptas los Términos (' . lc_base() . '/terminos).']],
-          'success_url' => lc_base() . '/admin.php?v=plan&pago=ok', 'cancel_url' => lc_base() . '/admin.php?v=plan'];
-    if ($neg['stripe_cliente']) $p['customer'] = $neg['stripe_cliente']; elseif ($neg['email']) $p['customer_email'] = $neg['email'];
-    // Si está en la prueba gratis, conserva los días que le quedan: el primer cobro es al terminar la prueba.
-    // (Stripe pide que la prueba termine al menos 2 días después de hoy.)
-    if ($PLAN['clave'] === 'prueba' && $neg['prueba_hasta']) {
-      $finPrueba = strtotime($neg['prueba_hasta'] . ' 23:59:59');
-      if ($finPrueba > time() + 2 * 86400 + 3600) $p['subscription_data']['trial_end'] = $finPrueba;
-    }
-    $r = lc_stripe('checkout/sessions', $p);
-    if (!empty($r['url'])) { header('Location: ' . $r['url']); exit; }
-    ir('plan', null, 'No se pudo abrir el pago: ' . ($r['error']['message'] ?? 'error desconocido'));
-  }
+  if ($a === 'pagar' && lc_stripe_activo()) iniciarPago($neg, $PLAN, 'admin.php?v=plan');
   // Cancelar desde LuniCitas, sin depender del portal: Stripe no vuelve a cobrar y el Pro dura hasta el fin del periodo pagado.
   if (in_array($a, ['cancelar', 'reactivar'], true) && lc_stripe_activo() && $neg['stripe_sub']) {
     $r = lc_stripe('subscriptions/' . rawurlencode($neg['stripe_sub']), ['cancel_at_period_end' => $a === 'cancelar' ? 'true' : 'false']);
@@ -307,6 +318,7 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
   ir($v);
 }
 $aviso = $_SESSION['aviso'] ?? ''; unset($_SESSION['aviso']);
+if (isset($_GET['sin_tarjeta']) && $PLAN['clave'] === 'prueba') $aviso = 'Sigues con tus ' . LC_DIAS_PRUEBA . ' días gratis. Para que tu página no se cierre al terminar, añade tu tarjeta en Plan cuando quieras: no se cobra hasta el último día.';
 
 $ini = (clone $d)->modify('first day of this month');
 $fin = (clone $d)->modify('last day of this month');

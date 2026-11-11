@@ -54,7 +54,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($base) < 3) $base .= '-lc';
     $slug = $base; $n = 2;
     $chk = $db->prepare('SELECT COUNT(*) FROM negocios WHERE slug = ?');
-    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth'], true)) break; $slug = $base . '-' . $n++; }
+    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth','calendario'], true)) break; $slug = $base . '-' . $n++; }
 
     $id = lc_crear_negocio($db, $nombre, $tipo, $slug, $usuario, $_POST['clave'], $persona);
     $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ?, email = ?, terminos_aceptados = NOW() WHERE id = ?")
@@ -68,6 +68,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     session_regenerate_id(true);
     $_SESSION['neg'] = $id; $_SESSION['super'] = false;
+    $_SESSION['empezar_pago'] = true; // el portal lo lleva directo a poner la tarjeta, con sus días gratis
     $_SESSION['aviso'] = '¡Bienvenido a LuniCitas! Tienes ' . LC_DIAS_PRUEBA . ' días de prueba con todo incluido; después añade tu tarjeta en Plan para seguir. Revisa tu horario y servicios, y comparte tu enlace. Para volver a entrar usa ' . ($_SERVER['HTTP_HOST'] ?? '') . '/entrar' . ($nuevo ? ' y toca Continuar con ' . $PROV[$nuevo['p']] . '.' : '.');
     header('Location: admin.php?v=negocio'); exit;
   }
@@ -76,7 +77,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Crea tu cuenta – LuniCitas</title><link rel="icon" href="logo.svg?v=3"><meta name="theme-color" content="#7b5cff"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="assets/app/apple-touch-icon.png"><meta name="apple-mobile-web-app-title" content="LuniCitas"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><script src="assets/app/instalar.js" defer></script>
-<meta name="description" content="Reservas en línea para barberías, salones y centros de estética. Prueba gratis <?= LC_DIAS_PRUEBA ?> días, sin tarjeta.">
+<meta name="description" content="Reservas en línea para barberías, salones y centros de estética. Prueba gratis <?= LC_DIAS_PRUEBA ?> días.">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:Poppins,sans-serif;background:#f7f7fb;color:#1d1b2e;display:flex;justify-content:center;padding:18px}
@@ -105,10 +106,10 @@ input:focus,select:focus{border-color:#7b5cff;outline:none}
     <h1>Tu agenda en línea, lista en 2 minutos</h1>
     <p class="s">Tus clientes reservan desde el celular, sin llamadas ni mensajes.</p>
     <ul class="ventajas">
-      <li>✅ <b><?= LC_DIAS_PRUEBA ?> días gratis</b> con todo incluido, sin tarjeta</li>
+      <li>✅ <b><?= LC_DIAS_PRUEBA ?> días gratis</b> con todo incluido. Pones tu tarjeta al empezar y <b>no se cobra nada hasta el día <?= LC_DIAS_PRUEBA ?></b></li>
       <li>✅ Tu propio enlace para Instagram y WhatsApp</li>
       <li>✅ Recordatorios por WhatsApp para que no falten</li>
-      <li>✅ Después, <?= e(lc_cfg('PLAN_PRECIO', '$20 al mes')) ?>. Si no añades tu tarjeta, la cuenta se cierra sola: <b>nunca te cobramos sin tu permiso</b></li>
+      <li>✅ Después, <?= e(lc_cfg('PLAN_PRECIO', '$20 al mes')) ?>. Cancela antes de que termine la prueba en Plan y <b>no pagas nada</b></li>
     </ul>
   </div>
   <div class="box">
