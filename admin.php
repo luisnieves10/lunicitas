@@ -16,11 +16,14 @@ if (!$db->query("SHOW COLUMNS FROM citas LIKE 'estado'")->fetch()) {
 function e($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 function h12($t) { [$h, $m] = array_map('intval', explode(':', $t)); return (($h % 12) ?: 12) . ':' . str_pad($m, 2, '0', STR_PAD_LEFT) . ($h < 12 ? ' a. m.' : ' p. m.'); }
 function csvSeguro($s) { $s = (string)$s; return preg_match('/^[=+\-@\t\r]/', $s) ? "'" . $s : $s; }
+function js($x) { return json_encode($x, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); }
+function cambio($a, $b) { if (!$b) return $a ? '↑ nuevo' : '—'; $p = round(($a - $b) * 100 / $b); return ($p >= 0 ? '↑ ' : '↓ ') . abs($p) . '%'; }
 $PRECIOS = ['Corte clásico' => 12, 'Corte + barba' => 18, 'Fade / degradado' => 15, 'Arreglo de barba' => 8];
 $ESTADOS = ['pendiente' => 'Pendiente', 'asistio' => 'Asistió', 'no_asistio' => 'No asistió'];
 $DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 $DC = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 $MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+$MC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 $ip = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . 'lunicitas');
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $admin = !empty($_SESSION['admin']);
@@ -52,7 +55,7 @@ $d->setTime(0, 0);
 function ir($v, $f) { header('Location: admin.php?' . http_build_query(['v' => $v, 'fecha' => $f])); exit; }
 function url($v, $f) { return '?' . http_build_query(['v' => $v, 'fecha' => $f]); }
 
-// Acciones: marcar asistencia o cancelar
+// Acciones
 if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
   if (hash_equals($_SESSION['csrf'], (string)($_POST['csrf'] ?? ''))) {
     $id = (int)($_POST['id'] ?? 0);
@@ -68,7 +71,7 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
 $ini = (clone $d)->modify('first day of this month');
 $fin = (clone $d)->modify('last day of this month');
 
-// Exportar mes a Excel (CSV)
+// Exportar a Excel (CSV)
 if ($admin && ($_GET['export'] ?? '') === 'csv') {
   $q = $db->prepare("SELECT * FROM citas WHERE fecha BETWEEN ? AND ? ORDER BY fecha, STR_TO_DATE(hora, '%H:%i')");
   $q->execute([$ini->format('Y-m-d'), $fin->format('Y-m-d')]);
@@ -84,7 +87,7 @@ if ($admin && ($_GET['export'] ?? '') === 'csv') {
   exit;
 }
 
-// Navegación y título
+// Navegación
 $hoy = date('Y-m-d');
 if ($v === 'dia') {
   $ant = (clone $d)->modify('-1 day'); $sig = (clone $d)->modify('+1 day');
@@ -100,6 +103,11 @@ if ($v === 'dia') {
 
 // Datos
 $citas = []; $porDia = []; $cnt = []; $r = null;
+function resumen($filas, $PRECIOS) {
+  $s = ['total' => count($filas), 'ingresos' => 0];
+  foreach ($filas as $c) if ($c['estado'] === 'asistio') $s['ingresos'] += $PRECIOS[$c['servicio']] ?? 0;
+  return $s;
+}
 if ($admin) {
   if ($v === 'dia') {
     $q = $db->prepare("SELECT * FROM citas WHERE fecha = ? ORDER BY STR_TO_DATE(hora, '%H:%i')");
@@ -114,21 +122,35 @@ if ($admin) {
     $todas = $q->fetchAll(PDO::FETCH_ASSOC);
     foreach ($todas as $c) $cnt[$c['fecha']] = ($cnt[$c['fecha']] ?? 0) + 1;
     if ($v === 'reporte') {
-      $r = ['total' => count($todas), 'asistio' => 0, 'no_asistio' => 0, 'pendiente' => 0, 'ingresos' => 0, 'barberos' => [], 'servicios' => [], 'horas' => []];
+      $r = ['total' => count($todas), 'asistio' => 0, 'no_asistio' => 0, 'pendiente' => 0, 'ingresos' => 0,
+            'barberos' => [], 'servicios' => [], 'ingServ' => [], 'horas' => [], 'dias' => array_fill(1, 7, 0)];
+      foreach (array_keys($PRECIOS) as $sv) { $r['servicios'][$sv] = 0; $r['ingServ'][$sv] = 0; }
       foreach ($todas as $c) {
         $est = $c['estado']; $p = $PRECIOS[$c['servicio']] ?? 0;
         $r[$est] = ($r[$est] ?? 0) + 1;
-        $b = &$r['barberos'][$c['barbero']];
-        $b = $b ?? ['citas' => 0, 'asistio' => 0, 'ingresos' => 0];
-        $b['citas']++;
-        if ($est === 'asistio') { $b['asistio']++; $b['ingresos'] += $p; $r['ingresos'] += $p; }
-        unset($b);
+        $r['barberos'][$c['barbero']] = ($r['barberos'][$c['barbero']] ?? 0) + 1;
         $r['servicios'][$c['servicio']] = ($r['servicios'][$c['servicio']] ?? 0) + 1;
+        if ($est === 'asistio') { $r['ingresos'] += $p; $r['ingServ'][$c['servicio']] = ($r['ingServ'][$c['servicio']] ?? 0) + $p; }
         $r['horas'][$c['hora']] = ($r['horas'][$c['hora']] ?? 0) + 1;
+        $r['dias'][(int)date('N', strtotime($c['fecha']))]++;
       }
-      arsort($r['servicios']); arsort($r['horas']);
+      arsort($r['horas']);
       $cerradas = $r['asistio'] + $r['no_asistio'];
       $r['tasa'] = $cerradas ? round($r['asistio'] * 100 / $cerradas) : 0;
+      // Mes anterior
+      $pIni = (clone $ini)->modify('-1 month'); $pFin = (clone $pIni)->modify('last day of this month');
+      $q = $db->prepare('SELECT servicio, estado FROM citas WHERE fecha BETWEEN ? AND ?');
+      $q->execute([$pIni->format('Y-m-d'), $pFin->format('Y-m-d')]);
+      $r['prev'] = resumen($q->fetchAll(PDO::FETCH_ASSOC), $PRECIOS);
+      // Tendencia 6 meses
+      $t0 = (clone $ini)->modify('-5 months');
+      $q = $db->prepare("SELECT DATE_FORMAT(fecha, '%Y-%m') m, servicio, COUNT(*) n FROM citas WHERE fecha BETWEEN ? AND ? GROUP BY m, servicio");
+      $q->execute([$t0->format('Y-m-d'), $fin->format('Y-m-d')]);
+      $r['tMeses'] = []; $claves = [];
+      for ($i = 0; $i < 6; $i++) { $mm = (clone $t0)->modify("+$i months"); $claves[] = $mm->format('Y-m'); $r['tMeses'][] = $MC[$mm->format('n') - 1]; }
+      $r['tend'] = [];
+      foreach (array_keys($PRECIOS) as $sv) $r['tend'][$sv] = array_fill(0, 6, 0);
+      foreach ($q as $row) { $k = array_search($row['m'], $claves, true); if ($k !== false && isset($r['tend'][$row['servicio']])) $r['tend'][$row['servicio']][$k] = (int)$row['n']; }
     }
   }
 }
@@ -156,15 +178,16 @@ function tarjeta($c, $v, $fecha) {
 <style>
 :root{--m:#7b5cff;--g:linear-gradient(90deg,#7b5cff,#1fd1c1)}
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:Poppins,sans-serif;background:#f7f7fb;color:#1d1b2e;display:flex;justify-content:center;min-height:100vh}
-.app{width:100%;max-width:760px;padding:18px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.top img{height:34px}.top a{color:#8a88a0;font-size:14px;text-decoration:none}
+.app{width:100%;max-width:820px;padding:18px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.top img{height:34px}.top a{color:#8a88a0;font-size:14px;text-decoration:none}
 .tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto}.tabs a{flex:1;text-align:center;padding:10px;border-radius:14px;background:#fff;color:#6b6980;text-decoration:none;font-weight:600;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.05)}.tabs a.on{background:var(--g);color:#fff}
 .box{background:#fff;border-radius:18px;padding:14px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin-bottom:10px}
+.box h3{font-size:15px;margin-bottom:10px}
 input{width:100%;padding:14px;border-radius:14px;border:2px solid #e4e2ee;font-size:16px;margin-bottom:10px;font-family:inherit}
-.btn{display:inline-block;padding:13px 18px;border:none;border-radius:14px;background:var(--g);color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;text-decoration:none;text-align:center}
+.btn{display:inline-block;padding:12px 16px;border:none;border-radius:14px;background:var(--g);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;text-decoration:none;text-align:center}
 .err{color:#e5484d;margin-bottom:10px;font-size:14px}
 .nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.nav a{background:#fff;border-radius:12px;padding:8px 14px;text-decoration:none;color:var(--m);font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.06)}.nav h2{font-size:17px;text-align:center}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}.stat{background:var(--g);color:#fff;border-radius:16px;padding:12px}.stat b{font-size:22px;display:block}.stat small{opacity:.9;font-size:12px}
-.stat.w{background:#fff;color:#1d1b2e;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.stat.w{background:#fff;color:#1d1b2e;box-shadow:0 2px 10px rgba(0,0,0,.06)}.chip{font-size:11px;display:inline-block;margin-top:4px;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.25)}
 .fila{display:flex;gap:10px;align-items:center}.hora{min-width:82px;font-weight:700;color:var(--m)}.cita .t{flex:1}.cita small{color:#8a88a0;display:block}
 .tag{font-size:12px;padding:4px 8px;border-radius:8px;background:#ebe9f3;color:#6b6980;white-space:nowrap}
 .cita.asistio .tag{background:#e7f9ef;color:#128c4a}.cita.no_asistio .tag{background:#fdecec;color:#e5484d}
@@ -175,8 +198,10 @@ input{width:100%;padding:14px;border-radius:14px;border:2px solid #e4e2ee;font-s
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.cal .h{text-align:center;font-size:12px;color:#8a88a0;font-weight:600}
 .cal a{background:#fff;border-radius:12px;min-height:64px;padding:6px;text-decoration:none;color:#1d1b2e;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;flex-direction:column;justify-content:space-between}
 .cal a.hoy{outline:2px solid var(--m)}.cal .n{font-size:12px;background:var(--g);color:#fff;border-radius:8px;padding:2px 6px;align-self:flex-end;font-weight:700}
-table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid #eee}th{color:#8a88a0;font-weight:600}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:640px){.grid2{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+.rank{margin-bottom:10px}.rank .lin{display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px}.rank .bar{height:10px;border-radius:6px;background:#ebe9f3;overflow:hidden}.rank .bar span{display:block;height:100%;border-radius:6px}
+.chart{position:relative;height:240px}
 @media print{.noprint{display:none!important}body{background:#fff}.box,.stat{box-shadow:none;border:1px solid #ddd}}
 </style></head><body><div class="app">
 <?php if (!$admin): ?>
@@ -189,7 +214,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 <?php else: ?>
   <div class="top"><img src="logo.svg" alt="lunicitas"><a class="noprint" href="?salir=1">Salir</a></div>
   <div class="tabs noprint">
-    <?php foreach (['dia' => 'Día', 'semana' => 'Semana', 'mes' => 'Mes', 'reporte' => 'Reportes'] as $k => $n): ?>
+    <?php foreach (['dia' => 'Día', 'semana' => 'Semana', 'mes' => 'Mes', 'reporte' => 'Análisis'] as $k => $n): ?>
       <a class="<?= $v === $k ? 'on' : '' ?>" href="<?= e(url($k, $fecha)) ?>"><?= $n ?></a>
     <?php endforeach; ?>
   </div>
@@ -219,28 +244,42 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
     </div>
     <p style="color:#8a88a0;font-size:13px;margin-top:10px">Toca un día para ver sus citas. Total del mes: <?= array_sum($cnt) ?> citas.</p>
 
-  <?php else: ?>
+  <?php else: $COL = ['#7b5cff', '#1fd1c1', '#ff7ab6', '#ffb547', '#4da3ff', '#9be15d']; $maxS = max(1, max($r['servicios'])); $iS = 0; ?>
     <div class="btns noprint"><a class="btn" href="<?= e(url('reporte', $fecha)) ?>&export=csv">⬇ Descargar Excel</a>
       <button class="btn" onclick="window.print()">🖨 Imprimir / PDF</button></div>
     <div class="stats">
-      <div class="stat"><b><?= $r['total'] ?></b><small>Citas del mes</small></div>
-      <div class="stat"><b><?= $r['asistio'] ?></b><small>Asistieron</small></div>
-      <div class="stat"><b><?= $r['no_asistio'] ?></b><small>No asistieron</small></div>
-      <div class="stat w"><b><?= $r['pendiente'] ?></b><small>Sin marcar</small></div>
-      <div class="stat w"><b><?= $r['tasa'] ?>%</b><small>Tasa de asistencia</small></div>
-      <div class="stat w"><b>$<?= $r['ingresos'] ?></b><small>Ingresos (asistieron)</small></div>
+      <div class="stat"><b><?= $r['total'] ?></b><small>Citas del mes</small><br><span class="chip"><?= cambio($r['total'], $r['prev']['total']) ?> vs mes anterior</span></div>
+      <div class="stat"><b>$<?= $r['ingresos'] ?></b><small>Ingresos (asistieron)</small><br><span class="chip"><?= cambio($r['ingresos'], $r['prev']['ingresos']) ?> vs mes anterior</span></div>
+      <div class="stat"><b><?= $r['tasa'] ?>%</b><small>Tasa de asistencia</small></div>
     </div>
-    <div class="box"><h3 style="margin-bottom:8px">Por barbero</h3>
-      <?php if (!$r['barberos']): ?><p class="vacio">Sin datos este mes</p><?php else: ?>
-      <table><tr><th>Barbero</th><th>Citas</th><th>Asistieron</th><th>Ingresos</th></tr>
-      <?php foreach ($r['barberos'] as $n => $b): ?><tr><td><?= e($n) ?></td><td><?= $b['citas'] ?></td><td><?= $b['asistio'] ?></td><td>$<?= $b['ingresos'] ?></td></tr><?php endforeach; ?>
-      </table><?php endif; ?></div>
-    <div class="box"><h3 style="margin-bottom:8px">Por servicio</h3>
-      <?php if (!$r['servicios']): ?><p class="vacio">Sin datos este mes</p><?php else: ?>
-      <table><tr><th>Servicio</th><th>Citas</th></tr>
-      <?php foreach ($r['servicios'] as $n => $k): ?><tr><td><?= e($n) ?></td><td><?= $k ?></td></tr><?php endforeach; ?>
-      </table><?php endif; ?></div>
-    <?php if ($r['horas']): ?><div class="box">⏰ Hora más pedida: <b><?= e(h12(array_key_first($r['horas']))) ?></b></div><?php endif; ?>
+    <div class="box"><h3>✂️ Tipos de corte del mes</h3>
+      <?php foreach ($r['servicios'] as $sv => $n): $pct = $r['total'] ? round($n * 100 / $r['total']) : 0; $col = $COL[$iS++ % 6]; ?>
+        <div class="rank"><div class="lin"><span><b><?= e($sv) ?></b></span><span><?= $n ?> cortes · <?= $pct ?>% · $<?= $r['ingServ'][$sv] ?? 0 ?></span></div>
+          <div class="bar"><span style="width:<?= round($n * 100 / $maxS) ?>%;background:<?= $col ?>"></span></div></div>
+      <?php endforeach; ?></div>
+    <div class="grid2">
+      <div class="box"><h3>Reparto de cortes</h3><div class="chart"><canvas id="cTipos"></canvas></div></div>
+      <div class="box"><h3>Ingresos por tipo de corte</h3><div class="chart"><canvas id="cIng"></canvas></div></div>
+    </div>
+    <div class="box"><h3>📈 Tendencia de los últimos 6 meses</h3><div class="chart" style="height:280px"><canvas id="cTend"></canvas></div></div>
+    <div class="grid2">
+      <div class="box"><h3>Asistencia</h3><div class="chart"><canvas id="cAsis"></canvas></div></div>
+      <div class="box"><h3>Citas por barbero</h3><div class="chart"><canvas id="cBarb"></canvas></div></div>
+    </div>
+    <div class="box"><h3>📅 Días más ocupados</h3><div class="chart"><canvas id="cDias"></canvas></div>
+      <?php if ($r['horas']): ?><p style="margin-top:10px;font-size:14px">⏰ Hora más pedida: <b><?= e(h12(array_key_first($r['horas']))) ?></b></p><?php endif; ?></div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+    const COL=<?= js($COL) ?>;
+    Chart.defaults.font.family='Poppins, sans-serif';Chart.defaults.color='#6b6980';Chart.defaults.maintainAspectRatio=false;
+    const sv=<?= js(array_keys($r['servicios'])) ?>;
+    new Chart(cTipos,{type:'doughnut',data:{labels:sv,datasets:[{data:<?= js(array_values($r['servicios'])) ?>,backgroundColor:COL,borderWidth:0}]},options:{cutout:'62%',plugins:{legend:{position:'bottom'}}}});
+    new Chart(cIng,{type:'bar',data:{labels:sv,datasets:[{data:<?= js(array_values($r['ingServ'])) ?>,backgroundColor:COL,borderRadius:8}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v}}}}});
+    new Chart(cTend,{type:'bar',data:{labels:<?= js($r['tMeses']) ?>,datasets:sv.map((s,i)=>({label:s,data:<?= js($r['tend']) ?>[s],backgroundColor:COL[i],borderRadius:6}))},options:{plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}}}});
+    new Chart(cAsis,{type:'doughnut',data:{labels:['Asistió','No vino','Sin marcar'],datasets:[{data:[<?= (int)$r['asistio'] ?>,<?= (int)$r['no_asistio'] ?>,<?= (int)$r['pendiente'] ?>],backgroundColor:['#1fd1c1','#ff7ab6','#d9d6e6'],borderWidth:0}]},options:{cutout:'62%',plugins:{legend:{position:'bottom'}}}});
+    new Chart(cBarb,{type:'bar',data:{labels:<?= js(array_keys($r['barberos'])) ?>,datasets:[{data:<?= js(array_values($r['barberos'])) ?>,backgroundColor:'#7b5cff',borderRadius:8}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}});
+    new Chart(cDias,{type:'bar',data:{labels:<?= js($DC) ?>,datasets:[{data:<?= js(array_values($r['dias'])) ?>,backgroundColor:'#1fd1c1',borderRadius:8}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+    </script>
   <?php endif; ?>
 <?php endif; ?>
 </div></body></html>
