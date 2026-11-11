@@ -75,6 +75,7 @@ $FILTROS = ['' => 'Todos (' . count($todos) . ')', 'fijos' => '⭐ Fijos (' . $c
       <small><?= (int)$c['visitas'] ?> <?= $c['visitas'] == 1 ? 'visita' : 'visitas' ?><?= $c['ultima'] ? ' · última ' . e(date('j/n/Y', strtotime($c['ultima']))) : '' ?> · <?= e(dinero($c['gastado'])) ?></small></div></summary>
     <div class="det">
       <div class="acc2">
+        <a href="?v=dia&amp;cliente=<?= (int)$c['id'] ?>#nueva">📅 Apartar cita</a>
         <?php if ($wa): ?><a class="wa" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">💬 WhatsApp</a><?php endif; ?>
         <?php if ($wa && $c['extrana']): ?><a class="wa" href="https://wa.me/<?= e($wa) ?>?text=<?= e(rawurlencode($msgVuelve)) ?>" target="_blank" rel="noopener">👋 Invitar a volver</a><?php endif; ?>
         <?php if ($wa): ?><a class="wa" href="https://wa.me/<?= e($wa) ?>?text=<?= e(rawurlencode($msgEnlace)) ?>" target="_blank" rel="noopener">🎁 Enviarle su enlace</a><?php endif; ?>

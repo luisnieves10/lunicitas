@@ -21,6 +21,7 @@ Sencilla, bonita y pensada para el celular. En español, inglés y portugués.</
 
 **Para el dueño** (portal en `admin.php`)
 - Agenda por día, semana y mes. Marca quién asistió y quién no.
+- Apartar citas desde el portal a clientes de la lista o a personas sin inscribir (incluso fuera de horario), con confirmación por WhatsApp.
 - 🔔 Recordatorio por WhatsApp en un toque, con el mensaje ya escrito. Opcional: recordatorios automáticos.
 - Servicios editables: nombre, precio, duración y foto.
 - Equipo editable: nombres, fotos y especialidades.

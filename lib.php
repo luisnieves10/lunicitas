@@ -274,6 +274,14 @@ function lc_wa_numero($tel, $prefijo) {
   return $d;
 }
 
+function lc_mensaje_confirmacion($c, $neg) {
+  $DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  [$h, $m] = array_map('intval', explode(':', $c['hora']));
+  $hora = (($h % 12) ?: 12) . ':' . str_pad($m, 2, '0', STR_PAD_LEFT) . ($h < 12 ? ' a. m.' : ' p. m.');
+  $dia = $DIAS[(int)date('w', strtotime($c['fecha']))] . ' ' . (int)date('j', strtotime($c['fecha']));
+  $nombre = explode(' ', trim($c['nombre']))[0];
+  return "Hola $nombre, te apartamos tu cita en {$neg['nombre']} el $dia a las $hora ({$c['servicio']} con {$c['barbero']}). ¡Te esperamos! Si no puedes venir, avísanos por aquí.";
+}
 function lc_mensaje_recordatorio($c, $neg) {
   $DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
   [$h, $m] = array_map('intval', explode(':', $c['hora']));

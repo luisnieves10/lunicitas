@@ -555,6 +555,7 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
       <div class="stat"><b><?= count(array_filter($citas, function ($c) { return $c['estado'] === 'asistio'; })) ?></b><small>Asistieron</small></div>
       <div class="stat"><b><?= e(dinero($tot)) ?></b><small>Ingresos estimados</small></div></div>
     <?php if ($fecha === $manana && $porRecordar): ?><div class="alerta noprint">🔔 Toca <b>Recordar por WhatsApp</b> en cada cita: se abre WhatsApp con el mensaje ya escrito.</div><?php endif; ?>
+    <?php include __DIR__ . '/modulos/v_nueva_cita.php'; ?>
     <?php if (!$citas): ?><div class="box vacio">No hay citas este día</div><?php endif; ?>
     <?php foreach ($citas as $c) tarjeta($c, $v, $fecha); ?>
 

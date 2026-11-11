@@ -69,6 +69,67 @@ if ($a === 'sop_visitante' && $super) { // respuesta por correo a un mensaje del
 }
 if ($a === 'sop_leido' && $super) { $db->prepare("UPDATE mensajes SET leido = 1 WHERE id = ? AND negocio_id IS NULL")->execute([$id]); ir('soporte'); }
 
+// ── Apartar una cita desde el portal (cliente de la lista o persona sin inscribir) ──
+if ($a === 'cita_nueva') {
+  $volver = function ($msg, $f = null) use ($fecha) { $_SESSION['nueva_cita'] = $_POST; ir('dia', $f ?? $fecha, $msg); };
+  $q = $db->prepare('SELECT * FROM servicios WHERE id = ? AND negocio_id = ? AND activo = 1'); $q->execute([(int)($_POST['servicio'] ?? 0), $nid]); $s = $q->fetch();
+  $f = (string)($_POST['dia'] ?? ''); $d = DateTime::createFromFormat('!Y-m-d', $f);
+  $forzar = !empty($_POST['forzar']);
+  $hora = lc_min($forzar && ($_POST['hora_manual'] ?? '') !== '' ? $_POST['hora_manual'] : ($_POST['hora'] ?? ''));
+  $eid = (int)($_POST['equipo'] ?? 0);
+  if (!$s) $volver('Elige el servicio.');
+  if (!$d || $d->format('Y-m-d') !== $f || $f < date('Y-m-d', strtotime('-1 day')) || $f > date('Y-m-d', strtotime('+365 days'))) $volver('Revisa la fecha.');
+  if ($hora === null || $hora >= 24 * 60) $volver('Elige la hora.');
+
+  // ¿Quién viene? Un cliente de la lista, o alguien nuevo (con o sin teléfono)
+  $cli = null; $nombre = ''; $tel = '';
+  if (($_POST['quien'] ?? '') === 'lista') {
+    $q = $db->prepare('SELECT * FROM clientes WHERE id = ? AND negocio_id = ?'); $q->execute([(int)($_POST['cliente_id'] ?? 0), $nid]); $cli = $q->fetch() ?: null;
+    if (!$cli) $volver('Elige el cliente de tu lista.');
+    $nombre = $cli['nombre']; $tel = $cli['telefono'];
+  } else {
+    $nombre = p('nombre', 80); $tel = preg_replace('/[^0-9+]/', '', p('telefono', 20));
+    if (mb_strlen($nombre) < 2) $volver('Escribe el nombre de la persona.');
+    if ($tel !== '' && strlen($tel) < 7) $volver('El teléfono parece incompleto. Puedes dejarlo vacío.');
+  }
+
+  $limite = lc_es_pro($neg) ? '' : ' LIMIT 1';
+  try {
+    $db->beginTransaction();
+    $q = $db->prepare('SELECT id, nombre FROM equipo WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id' . $limite . ' FOR UPDATE'); $q->execute([$nid]);
+    $equipoAct = $q->fetchAll(PDO::FETCH_KEY_PAIR);
+    if (!$equipoAct || ($eid && !isset($equipoAct[$eid]))) { $db->rollBack(); $volver('Elige quién atiende.'); }
+    $elegido = null;
+    if ($forzar) {
+      $elegido = $eid ?: array_key_first($equipoAct); // fuera de horario o encima de otra cita: lo decide el dueño
+    } else {
+      foreach (lc_disponibles($db, $neg, $f, (int)$s['duracion'], $eid ? [$eid] : array_keys($equipoAct)) as $id2 => $horas)
+        if (in_array($hora, $horas, true)) { $elegido = $id2; break; }
+      if (!$elegido) { $db->rollBack(); $volver('Esa hora ya no está libre. Elige otra o marca “Apartar aunque esté ocupada o fuera de horario”.'); }
+    }
+    $db->prepare('INSERT INTO citas (negocio_id, servicio, barbero, equipo_id, fecha, hora, duracion, precio, nombre, telefono, idioma, ip_hash, cliente_id)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+       ->execute([$nid, $s['nombre'], $equipoAct[$elegido], $elegido, $f, lc_hhmm($hora), (int)$s['duracion'], $s['precio'],
+                  $nombre, $tel, 'es', hash('sha256', 'portal'), $cli['id'] ?? null]);
+    $citaId = (int)$db->lastInsertId();
+    $db->commit();
+  } catch (PDOException $ex) {
+    if ($db->inTransaction()) $db->rollBack();
+    $volver('No se pudo guardar la cita. Inténtalo otra vez.');
+  }
+  // Persona nueva con teléfono: se guarda en Clientes si el dueño lo pidió
+  if (!$cli && $tel !== '' && !empty($_POST['guardar'])) {
+    try { $cli = lc_cliente($db, $neg, $nombre, $tel); if ($cli) $db->prepare('UPDATE citas SET cliente_id = ? WHERE id = ?')->execute([$cli['id'], $citaId]); }
+    catch (Exception $ex) { error_log('LuniCitas cliente: ' . $ex->getMessage()); }
+  }
+  unset($_SESSION['nueva_cita']);
+  if ($tel !== '' && ($wa = lc_wa_numero($tel, $neg['prefijo']))) {
+    $c = ['nombre' => $nombre, 'fecha' => $f, 'hora' => lc_hhmm($hora), 'servicio' => $s['nombre'], 'barbero' => $equipoAct[$elegido]];
+    $_SESSION['confirmar_wa'] = 'https://wa.me/' . $wa . '?text=' . rawurlencode(lc_mensaje_confirmacion($c, $neg));
+  }
+  ir('dia', $f, 'Cita apartada para ' . $nombre . ' a las ' . h12(lc_hhmm($hora)) . ' con ' . $equipoAct[$elegido] . '.');
+}
+
 // ── Clientes y promociones ─────────────────────────────
 if ($a === 'cli_guardar') {
   $db->prepare('UPDATE clientes SET nombre = ?, email = ?, nota = ?, fijo = ? WHERE id = ? AND negocio_id = ?')
