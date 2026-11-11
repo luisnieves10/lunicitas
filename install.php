@@ -38,6 +38,7 @@ if (!$instalado && $_SERVER['REQUEST_METHOD'] === 'POST') {
       @chmod($ruta, 0600);
       try {
         $db = lc_conectar();
+        lc_meta_set($db, 'registro', '0'); // en una instalación propia nadie más puede registrarse, salvo que lo abras en Negocios
         $q = $db->prepare('SELECT COUNT(*) FROM negocios WHERE slug = ? OR usuario = ?'); $q->execute([$slug, $f['usuario']]);
         if (!$q->fetchColumn()) lc_crear_negocio($db, $f['negocio'], isset(LC_TIPOS[$f['tipo']]) ? $f['tipo'] : 'barberia', $slug, $f['usuario'], $_POST['clave'], $f['persona'] ?? '');
         $listo = $slug;

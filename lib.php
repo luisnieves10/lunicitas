@@ -2,7 +2,8 @@
 // LuniCitas — funciones compartidas por api.php, admin.php, install.php y recordatorios.php
 // Licencia AGPL-3.0
 
-const LC_VERSION_BD = 2;
+const LC_VERSION_BD = 3;
+const LC_DIAS_PRUEBA = 14;
 const LC_TIPOS = ['barberia' => 'Barbería', 'salon' => 'Salón de belleza', 'estetica' => 'Estética / spa'];
 const LC_PERSONAL = ['barberia' => 'Barbero', 'salon' => 'Estilista', 'estetica' => 'Especialista'];
 
@@ -79,6 +80,14 @@ function lc_migrar($db) {
   $db->exec("CREATE TABLE IF NOT EXISTS dias_libres (
     id INT AUTO_INCREMENT PRIMARY KEY, negocio_id INT NOT NULL, fecha DATE NOT NULL, equipo_id INT NULL,
     motivo VARCHAR(80) NOT NULL DEFAULT '', KEY (negocio_id, fecha)) CHARACTER SET utf8mb4");
+
+  // Planes y pagos (versión 3). Los negocios que ya existían quedan en Pro sin vencimiento.
+  $planes = [
+    'plan' => "VARCHAR(10) NOT NULL DEFAULT 'pro'", 'prueba_hasta' => 'DATE NULL', 'pagado_hasta' => 'DATE NULL',
+    'email' => "VARCHAR(120) NOT NULL DEFAULT ''", 'stripe_cliente' => "VARCHAR(60) NOT NULL DEFAULT ''",
+    'stripe_sub' => "VARCHAR(60) NOT NULL DEFAULT ''",
+  ];
+  foreach ($planes as $c => $def) if (!lc_columna($db, 'negocios', $c)) $db->exec("ALTER TABLE negocios ADD $c $def");
 
   // Columnas nuevas en citas
   $nuevas = [
@@ -209,4 +218,57 @@ function lc_crear_negocio($db, $nombre, $tipo, $slug, $usuario, $clave, $persona
     $db->prepare('INSERT INTO servicios (negocio_id, nombre, duracion, precio, orden) VALUES (?,?,?,?,?)')->execute([$id, $n, $du, $pr, $i]);
   if ($persona !== '') $db->prepare('INSERT INTO equipo (negocio_id, nombre) VALUES (?, ?)')->execute([$id, $persona]);
   return $id;
+}
+
+// ── Planes ──────────────────────────────────────────────
+// gratis: 1 persona en el equipo, sin análisis ni recordatorios. prueba y pro: todo.
+function lc_plan($neg) {
+  $hoy = date('Y-m-d');
+  if (($neg['plan'] ?? 'pro') === 'pro' && (empty($neg['pagado_hasta']) || $neg['pagado_hasta'] >= $hoy)) return ['clave' => 'pro', 'dias' => null];
+  if (($neg['plan'] ?? '') === 'prueba' && !empty($neg['prueba_hasta']) && $neg['prueba_hasta'] >= $hoy)
+    return ['clave' => 'prueba', 'dias' => max(1, (int)round((strtotime($neg['prueba_hasta']) - strtotime($hoy)) / 86400))];
+  return ['clave' => 'gratis', 'dias' => null];
+}
+function lc_es_pro($neg) { return lc_plan($neg)['clave'] !== 'gratis'; }
+
+function lc_meta($db, $k, $defecto = null) {
+  $q = $db->prepare('SELECT v FROM lc_meta WHERE k = ?'); $q->execute([$k]); $v = $q->fetchColumn();
+  return $v === false ? $defecto : $v;
+}
+function lc_meta_set($db, $k, $v) { $db->prepare('REPLACE INTO lc_meta (k, v) VALUES (?, ?)')->execute([$k, (string)$v]); }
+function lc_registro_abierto($db) { return lc_meta($db, 'registro', '1') === '1'; }
+
+function lc_sesion() {
+  if (session_status() === PHP_SESSION_ACTIVE) return;
+  session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']), 'samesite' => 'Lax']);
+  session_start();
+}
+
+function lc_base() {
+  return (!empty($_SERVER['HTTPS']) ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/');
+}
+
+// ── Stripe (sin librerías). Se activa con $STRIPE_SECRET y $STRIPE_PRICE en config.php ──
+function lc_stripe_activo() { return (bool)lc_cfg('STRIPE_SECRET') && (bool)lc_cfg('STRIPE_PRICE'); }
+
+function lc_stripe($ruta, $params = []) {
+  $ch = curl_init('https://api.stripe.com/v1/' . $ruta);
+  curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25,
+    CURLOPT_USERPWD => lc_cfg('STRIPE_SECRET') . ':', CURLOPT_POSTFIELDS => http_build_query($params)]);
+  $r = json_decode((string)curl_exec($ch), true); curl_close($ch);
+  return is_array($r) ? $r : ['error' => ['message' => 'Sin respuesta de Stripe']];
+}
+
+// Comprueba la firma Stripe-Signature (t=...,v1=...) de un aviso (webhook).
+function lc_stripe_firma_valida($payload, $cabecera, $secreto, $tolerancia = 300) {
+  if (!$secreto || !$cabecera) return false;
+  $t = null; $firmas = [];
+  foreach (explode(',', $cabecera) as $parte) {
+    [$k, $v] = array_pad(explode('=', trim($parte), 2), 2, '');
+    if ($k === 't') $t = $v; elseif ($k === 'v1') $firmas[] = $v;
+  }
+  if (!$t || !ctype_digit($t) || abs(time() - (int)$t) > $tolerancia) return false;
+  $esperada = hash_hmac('sha256', $t . '.' . $payload, $secreto);
+  foreach ($firmas as $f) if (hash_equals($esperada, $f)) return true;
+  return false;
 }

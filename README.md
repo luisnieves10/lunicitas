@@ -28,6 +28,12 @@ Sencilla, bonita y pensada para el celular. En español, inglés y portugués.</
 - Análisis del mes con gráficas, comparación con el mes anterior y descarga a Excel o PDF.
 - Tipo de negocio: barbería, salón de belleza o estética. Los textos se adaptan (barbero, estilista, especialista).
 
+**Planes y registro (para ofrecerla como servicio)**
+- Página `registro.php`: cualquier negocio crea su cuenta solo, con 14 días de prueba con todo incluido.
+- Plan **Gratis** (1 persona, sin recordatorios ni análisis) y plan **Pro** (todo). Al terminar la prueba, la cuenta pasa sola a Gratis y sigue recibiendo reservas.
+- Cobro mensual con **Stripe**, listo para activar: pago, renovación, cancelación y avisos automáticos (`stripe.php`).
+- Desde la pestaña Negocios abres o cierras el registro público y cambias el plan de cualquier negocio a mano.
+
 **Varios negocios en una sola instalación.** Cada uno con su enlace (`tudominio.com/mi-barberia`) y sus datos separados. Ideal para ofrecer LuniCitas como servicio.
 
 ![Portal del dueño](docs/portal.png)
@@ -46,6 +52,21 @@ El instalador guarda `config.php` fuera de `public_html` cuando puede, para que 
 ### Actualizar
 
 Si instalaste desde Git, cada actualización llega con un *pull* (o sola, si activaste el despliegue automático). La base de datos se actualiza sola la primera vez que se abre la app; tus citas no se tocan.
+
+### Cobrar con Stripe (opcional)
+
+1. Crea tu cuenta en [stripe.com](https://dashboard.stripe.com/register) y un producto “LuniCitas Pro” con precio mensual. Copia su ID (`price_…`).
+2. En Stripe → Desarrolladores → Webhooks, añade `https://TU-DOMINIO/stripe.php` con los eventos `checkout.session.completed`, `customer.subscription.updated` y `customer.subscription.deleted`. Copia el secreto (`whsec_…`).
+3. Añade a `config.php`:
+   ```php
+   $STRIPE_SECRET = 'sk_test_…';
+   $STRIPE_PRICE = 'price_…';
+   $STRIPE_WEBHOOK_SECRET = 'whsec_…';
+   $PLAN_PRECIO = '$20 al mes';
+   ```
+4. Prueba con una tarjeta de prueba de Stripe y luego cambia a las claves reales.
+
+Las instalaciones nuevas empiezan con el registro público cerrado y todos los negocios en Pro: si la usas solo para tu negocio, no tienes que configurar nada de esto.
 
 ### Recordatorios automáticos por WhatsApp (opcional)
 
@@ -69,6 +90,8 @@ El botón **Recordar por WhatsApp** del portal funciona sin configurar nada. Si 
 | `admin.php` | Portal del dueño |
 | `install.php` | Instalador |
 | `lib.php` | Funciones compartidas y actualización de la base de datos |
+| `registro.php` | Registro de negocios nuevos con prueba gratis |
+| `stripe.php` | Recibe los avisos de pago de Stripe |
 | `recordatorios.php` | Recordatorios automáticos (opcional, por cron) |
 
 ![Editar servicios](docs/servicios.png)

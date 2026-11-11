@@ -1,8 +1,7 @@
 <?php
 // LuniCitas — portal del dueño. Licencia AGPL-3.0
-session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']), 'samesite' => 'Strict']);
-session_start();
 require __DIR__ . '/lib.php';
+lc_sesion();
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 
@@ -25,7 +24,7 @@ $MC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 $ZONAS = ['America/Puerto_Rico','America/Santo_Domingo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
   'America/Mexico_City','America/Guatemala','America/Panama','America/Bogota','America/Lima','America/Caracas','America/La_Paz',
   'America/Santiago','America/Argentina/Buenos_Aires','America/Sao_Paulo','Europe/Madrid','Europe/Lisbon'];
-$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs'];
+$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe'];
 $ip = lc_ip();
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $super = !empty($_SESSION['super']);
@@ -63,11 +62,14 @@ if ($negId) {
   date_default_timezone_set($neg['zona']);
 }
 $admin = (bool)$neg;
+$PLAN = $neg ? lc_plan($neg) : ['clave' => 'gratis', 'dias' => null];
+$pro = $PLAN['clave'] !== 'gratis';
+$PLAN_NOMBRE = ['pro' => 'Pro', 'prueba' => 'Prueba gratis', 'gratis' => 'Gratis'];
 $PERSONAL = LC_PERSONAL[$neg['tipo'] ?? 'barberia'] ?? 'Barbero';
 
 // ── Vista y fecha ───────────────────────────────────────
 $VISTAS = ['dia' => 'Día', 'semana' => 'Semana', 'mes' => 'Mes', 'reporte' => 'Análisis', 'servicios' => 'Servicios',
-           'equipo' => 'Equipo', 'negocio' => 'Negocio'];
+           'equipo' => 'Equipo', 'negocio' => 'Negocio', 'plan' => 'Plan'];
 if ($super) $VISTAS['negocios'] = 'Negocios';
 $v = $_GET['v'] ?? 'dia';
 if (!isset($VISTAS[$v])) $v = 'dia';
@@ -128,6 +130,7 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $db->prepare('UPDATE citas SET estado = ? WHERE id = ? AND negocio_id = ?')->execute([$_POST['estado'], $id, $nid]); ir($v);
   }
   if ($a === 'recordar') {
+    if (!$pro) ir('plan', null, 'Los recordatorios por WhatsApp son del plan Pro.');
     $q = $db->prepare('SELECT * FROM citas WHERE id = ? AND negocio_id = ?'); $q->execute([$id, $nid]);
     if ($c = $q->fetch()) {
       $db->prepare('UPDATE citas SET recordado = 1 WHERE id = ?')->execute([$id]);
@@ -177,6 +180,8 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
          ->execute([$nombre, $esp, $orden, $nueva, $id, $nid]);
       $db->prepare('UPDATE citas SET barbero = ? WHERE equipo_id = ? AND negocio_id = ? AND fecha >= CURDATE()')->execute([$nombre, $id, $nid]);
     } else {
+      $q = $db->prepare('SELECT COUNT(*) FROM equipo WHERE negocio_id = ? AND activo = 1'); $q->execute([$nid]);
+      if (!$pro && $q->fetchColumn() >= 1) { borrarFoto($foto ?: ''); ir('plan', null, 'El plan gratis permite 1 persona. Pasa a Pro para añadir más.'); }
       $db->prepare('INSERT INTO equipo (negocio_id, nombre, especialidad, orden, foto) VALUES (?,?,?,?,?)')
          ->execute([$nid, $nombre, $esp, $orden, $foto ?: '']);
     }
@@ -223,7 +228,36 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     ir('negocio', null, 'Contraseña cambiada.');
   }
 
+  // Pagos con Stripe
+  if ($a === 'pagar' && lc_stripe_activo()) {
+    $p = ['mode' => 'subscription', 'line_items' => [['price' => lc_cfg('STRIPE_PRICE'), 'quantity' => 1]],
+          'client_reference_id' => $nid, 'metadata' => ['negocio' => $nid], 'subscription_data' => ['metadata' => ['negocio' => $nid]],
+          'allow_promotion_codes' => 'true', 'locale' => 'es',
+          'success_url' => lc_base() . '/admin.php?v=plan&pago=ok', 'cancel_url' => lc_base() . '/admin.php?v=plan'];
+    if ($neg['stripe_cliente']) $p['customer'] = $neg['stripe_cliente']; elseif ($neg['email']) $p['customer_email'] = $neg['email'];
+    $r = lc_stripe('checkout/sessions', $p);
+    if (!empty($r['url'])) { header('Location: ' . $r['url']); exit; }
+    ir('plan', null, 'No se pudo abrir el pago: ' . ($r['error']['message'] ?? 'error desconocido'));
+  }
+  if ($a === 'portal' && lc_stripe_activo() && $neg['stripe_cliente']) {
+    $r = lc_stripe('billing_portal/sessions', ['customer' => $neg['stripe_cliente'], 'return_url' => lc_base() . '/admin.php?v=plan', 'locale' => 'es']);
+    if (!empty($r['url'])) { header('Location: ' . $r['url']); exit; }
+    ir('plan', null, 'No se pudo abrir la facturación: ' . ($r['error']['message'] ?? 'error desconocido'));
+  }
+  if ($a === 'email') {
+    $em = mb_strtolower(p('email', 120));
+    if (!filter_var($em, FILTER_VALIDATE_EMAIL)) ir('plan', null, 'Escribe un correo válido.');
+    $db->prepare('UPDATE negocios SET email = ? WHERE id = ?')->execute([$em, $nid]); ir('plan', null, 'Correo guardado.');
+  }
+
   // Solo el dueño de la plataforma
+  if ($super && $a === 'neg_plan' && in_array($_POST['plan'] ?? '', ['gratis', 'prueba', 'pro'], true)) {
+    $pl = $_POST['plan'];
+    $db->prepare('UPDATE negocios SET plan = ?, prueba_hasta = ?, pagado_hasta = NULL WHERE id = ?')
+       ->execute([$pl, $pl === 'prueba' ? date('Y-m-d', strtotime('+' . LC_DIAS_PRUEBA . ' days')) : null, $id]);
+    ir('negocios', null, 'Plan cambiado.');
+  }
+  if ($super && $a === 'registro') { lc_meta_set($db, 'registro', lc_registro_abierto($db) ? '0' : '1'); ir('negocios', null, 'Registro público ' . (lc_registro_abierto($db) ? 'abierto.' : 'cerrado.')); }
   if ($super && $a === 'neg_entrar') { $_SESSION['neg'] = $id; ir('dia'); }
   if ($super && $a === 'neg_crear') {
     $nombre = p('nombre', 80); $slug = lc_slug(($_POST['slug'] ?? '') ?: $nombre); $usuario = p('usuario', 40);
@@ -348,7 +382,8 @@ function tarjeta($c, $v, $fecha) {
     <form method="post" action="<?= e(url($v, $fecha)) ?>" class="acc noprint"><?= $csrf ?><input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
       <button class="si" name="estado" value="asistio">✓ Asistió</button>
       <button class="no" name="estado" value="no_asistio">✗ No vino</button>
-      <button class="wa" name="accion" value="recordar" formtarget="_blank" onclick="setTimeout(()=>location.reload(),800)"><?= $c['recordado'] ? '✓ Recordado' : '🔔 Recordar por WhatsApp' ?></button>
+      <?php if ($GLOBALS['pro']): ?><button class="wa" name="accion" value="recordar" formtarget="_blank" onclick="setTimeout(()=>location.reload(),800)"><?= $c['recordado'] ? '✓ Recordado' : '🔔 Recordar por WhatsApp' ?></button>
+      <?php else: ?><a class="wa" href="?v=plan">🔔 Recordar (Pro)</a><?php endif; ?>
       <button class="del" name="cancelar" value="1" onclick="return confirm('¿Cancelar esta cita?')">Cancelar</button>
     </form></div>
 <?php }
@@ -397,6 +432,7 @@ details.item form{padding:0 12px 12px}.price{color:var(--m);font-weight:700}
 .hor .desc{grid-column:2/4;display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;align-items:center;font-size:12px;color:#8a88a0;margin-bottom:8px}
 .enlace{background:#f1edff;border-radius:12px;padding:10px;font-size:14px;word-break:break-all;margin-bottom:10px}
 table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,table.lista th{padding:8px 6px;border-bottom:1px solid #eee;text-align:left}
+.plan-prueba{color:#b25e00!important}.plan-gratis{color:#8a88a0!important}
 .ck{display:flex;gap:6px;align-items:center;font-size:14px;margin-bottom:10px}.ck input{width:auto;margin:0}
 @media print{.noprint{display:none!important}body{background:#fff}.box,.stat{box-shadow:none;border:1px solid #ddd}}
 </style></head><body><div class="app">
@@ -406,9 +442,10 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
     <?php if ($error): ?><p class="err"><?= e($error) ?></p><?php endif; ?>
     <form method="post"><input name="u" placeholder="Usuario" autocomplete="username" required>
     <input name="p" type="password" placeholder="Contraseña" autocomplete="current-password" required>
-    <button class="btn" style="width:100%">Entrar</button></form></div>
+    <button class="btn" style="width:100%">Entrar</button></form>
+    <?php if (lc_registro_abierto($db)): ?><p style="text-align:center;margin-top:14px;font-size:14px;color:#6b6980">¿Tienes un negocio? <a href="registro.php" style="color:#7b5cff;font-weight:600">Crea tu cuenta gratis</a></p><?php endif; ?></div>
 <?php else: ?>
-  <div class="top"><img src="logo.svg?v=3" alt="lunicitas"><span class="neg"><b><?= e($neg['nombre']) ?></b> · <a href="<?= e($base . '/' . $neg['slug']) ?>" target="_blank">ver página</a></span><a class="noprint" href="?salir=1">Salir</a></div>
+  <div class="top"><img src="logo.svg?v=3" alt="lunicitas"><span class="neg"><b><?= e($neg['nombre']) ?></b> · <a href="<?= e($base . '/' . $neg['slug']) ?>" target="_blank">ver página</a> · <a href="?v=plan" class="plan-<?= $PLAN['clave'] ?>"><?= e($PLAN_NOMBRE[$PLAN['clave']]) ?><?= $PLAN['dias'] ? ': ' . $PLAN['dias'] . ' días' : '' ?></a></span><a class="noprint" href="?salir=1">Salir</a></div>
   <div class="tabs noprint">
     <?php foreach ($VISTAS as $k => $n): ?><a class="<?= $v === $k ? 'on' : '' ?>" href="<?= e(url($k)) ?>"><?= $n ?></a><?php endforeach; ?>
   </div>
@@ -444,6 +481,9 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
       <?php endfor; ?>
     </div>
     <p style="color:#8a88a0;font-size:13px;margin-top:10px">Toca un día para ver sus citas. Total del mes: <?= array_sum($cnt) ?> citas.</p>
+
+  <?php elseif ($v === 'reporte' && !$pro): ?>
+    <div class="box vacio"><h3>📊 El análisis del mes es del plan Pro</h3><p style="margin:8px 0 14px">Gráficas de ingresos, servicios, asistencia y días más ocupados, con descarga a Excel y PDF.</p><a class="btn" href="?v=plan">Ver planes</a></div>
 
   <?php elseif ($v === 'reporte'): $COL = ['#7b5cff', '#1fd1c1', '#ff7ab6', '#ffb547', '#4da3ff', '#9be15d']; $maxS = max(1, max($r['servicios'] ?: [0])); $iS = 0; ?>
     <div class="btns noprint"><a class="btn" href="<?= e(url('reporte')) ?>&export=csv">⬇ Descargar Excel</a>
@@ -521,6 +561,9 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
             <button class="btn rojo" name="accion" value="eq_borrar" onclick="return confirm('¿Quitar a esta persona del equipo?')">Quitar</button></div>
         </form></details>
     <?php endforeach; ?>
+    <?php if (!$pro && count($equipo) >= 1): ?>
+    <div class="alerta">El plan gratis incluye 1 persona. <a href="?v=plan">Pasa a Pro</a> para añadir a todo tu equipo.</div>
+    <?php else: ?>
     <div class="box"><h3>➕ Añadir <?= e(mb_strtolower($PERSONAL)) ?></h3>
       <form method="post" enctype="multipart/form-data" action="<?= e(url('equipo')) ?>"><?= $csrf ?>
         <label>Nombre</label><input name="nombre" maxlength="40" required>
@@ -528,6 +571,7 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
         <input type="hidden" name="orden" value="<?= count($equipo) ?>">
         <label>Foto (opcional)</label><input type="file" name="foto" accept="image/jpeg,image/png,image/webp">
         <button class="btn" name="accion" value="eq_guardar">Añadir</button></form></div>
+    <?php endif; ?>
 
   <?php elseif ($v === 'negocio'): $NOMD = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']; ?>
     <div class="box"><h3>🔗 Tu enlace de reservas</h3><div class="enlace"><?= e($base . '/' . $neg['slug']) ?></div>
@@ -580,14 +624,57 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
           <div><label>Nueva (mínimo 8)</label><input type="password" name="nueva" minlength="8" autocomplete="new-password" required></div></div>
         <button class="btn" name="accion" value="clave">Cambiar</button></form></div>
 
+  <?php elseif ($v === 'plan'): $precio = lc_cfg('PLAN_PRECIO', '$20 al mes'); $pagado = $neg['plan'] === 'pro' && $neg['stripe_sub']; ?>
+    <?php if (($_GET['pago'] ?? '') === 'ok'): ?><div class="aviso">¡Gracias! Stripe está confirmando tu pago. En unos segundos tu plan aparecerá como Pro; si no, recarga esta página.</div><?php endif; ?>
+    <div class="box"><h3>Tu plan: <?= e($PLAN_NOMBRE[$PLAN['clave']]) ?></h3>
+      <p style="font-size:14px;color:#6b6980">
+      <?php if ($PLAN['clave'] === 'prueba'): ?>Te quedan <b><?= $PLAN['dias'] ?> días</b> de prueba con todo incluido. Al terminar, tu cuenta sigue funcionando en el plan gratis con 1 persona, salvo que pases a Pro.
+      <?php elseif ($PLAN['clave'] === 'pro'): ?><?= $pagado ? 'Tu suscripción está activa' . ($neg['pagado_hasta'] ? ' y se renueva cerca del ' . e(date('j/n/Y', strtotime($neg['pagado_hasta']))) : '') . '.' : 'Tienes todas las funciones activas.' ?>
+      <?php else: ?>Tu negocio sigue recibiendo reservas con 1 persona. Pasa a Pro para todo el equipo, recordatorios y análisis.<?php endif; ?></p></div>
+    <div class="grid2">
+      <div class="box"><h3>Gratis</h3><p class="price" style="font-size:22px">$0</p>
+        <p style="font-size:14px;line-height:1.9">✓ Página de reservas y enlace propio<br>✓ Agenda día, semana y mes<br>✓ Servicios, horario y días libres<br>✓ 1 persona en el equipo<br><span style="color:#b9b7c9">✗ Recordatorios por WhatsApp<br>✗ Análisis, Excel y PDF</span></p></div>
+      <div class="box" style="outline:2px solid #7b5cff"><h3>Pro</h3><p class="price" style="font-size:22px"><?= e($precio) ?></p>
+        <p style="font-size:14px;line-height:1.9">✓ Todo lo del plan gratis<br>✓ <b>Equipo sin límite</b><br>✓ Recordatorios por WhatsApp<br>✓ Análisis del mes, Excel y PDF<br>✓ Cancela cuando quieras</p>
+        <?php if (lc_stripe_activo()): ?>
+          <form method="post" action="<?= e(url('plan')) ?>"><?= $csrf ?>
+          <?php if ($pagado): ?><button class="btn gris" name="accion" value="portal" style="width:100%">Administrar pago o cancelar</button>
+          <?php elseif ($PLAN['clave'] !== 'pro' || $neg['plan'] !== 'pro'): ?><button class="btn" name="accion" value="pagar" style="width:100%">Pasar a Pro</button><?php endif; ?>
+          </form>
+        <?php elseif ($PLAN['clave'] !== 'pro'): ?><p style="font-size:13px;color:#8a88a0">El pago en línea estará disponible muy pronto.</p><?php endif; ?>
+      </div>
+    </div>
+    <div class="box"><h3>Correo para recibos</h3>
+      <form method="post" action="<?= e(url('plan')) ?>" class="fila"><?= $csrf ?><input name="email" type="email" maxlength="120" value="<?= e($neg['email']) ?>" placeholder="tu@correo.com" style="margin:0;flex:1" required><button class="btn gris" name="accion" value="email">Guardar</button></form></div>
+    <?php if ($super && !lc_stripe_activo()): ?>
+    <div class="box"><h3>⚙️ Activar los pagos (solo tú ves esto)</h3>
+      <ol style="font-size:14px;line-height:1.8;padding-left:18px">
+        <li>Crea tu cuenta en <a href="https://dashboard.stripe.com/register" target="_blank" rel="noopener">stripe.com</a>.</li>
+        <li>En Stripe, crea un producto “LuniCitas Pro” con precio mensual y copia su ID de precio (<code>price_…</code>).</li>
+        <li>En Desarrolladores → Webhooks, añade el destino <code><?= e($base) ?>/stripe.php</code> con los eventos <code>checkout.session.completed</code>, <code>customer.subscription.updated</code> y <code>customer.subscription.deleted</code>. Copia su secreto (<code>whsec_…</code>).</li>
+        <li>Añade a <b>config.php</b> (fuera de public_html):<pre style="background:#1d1b2e;color:#e5e5f0;padding:10px;border-radius:10px;font-size:12px;overflow:auto;margin-top:6px">$STRIPE_SECRET = 'sk_test_…';
+$STRIPE_PRICE = 'price_…';
+$STRIPE_WEBHOOK_SECRET = 'whsec_…';
+$PLAN_PRECIO = '$20 al mes';</pre></li>
+        <li>Prueba con la tarjeta de prueba de Stripe y, cuando todo funcione, cambia a las claves reales (<code>sk_live_…</code>).</li>
+      </ol></div>
+    <?php endif; ?>
+
   <?php elseif ($v === 'negocios'): ?>
     <div class="box"><h3>🏪 Negocios en la plataforma</h3>
-      <table class="lista"><tr><th>Negocio</th><th>Enlace</th><th>Citas</th><th></th></tr>
+      <table class="lista"><tr><th>Negocio</th><th>Enlace</th><th>Citas</th><th>Plan</th><th></th></tr>
       <?php foreach ($lista as $n): ?>
         <tr><td><b><?= e($n['nombre']) ?></b><br><small style="color:#8a88a0"><?= e(LC_TIPOS[$n['tipo']] ?? $n['tipo']) ?> · <?= e($n['usuario']) ?></small></td>
           <td><a href="<?= e($base . '/' . $n['slug']) ?>" target="_blank">/<?= e($n['slug']) ?></a></td><td><?= (int)$n['citas'] ?></td>
+          <td><form method="post" action="<?= e(url('negocios')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int)$n['id'] ?>"><input type="hidden" name="accion" value="neg_plan">
+            <?php $pn = lc_plan($n); ?><select name="plan" onchange="this.form.submit()" style="margin:0;padding:6px;font-size:13px"><?php foreach (['gratis' => 'Gratis', 'prueba' => 'Prueba', 'pro' => 'Pro'] as $k => $t): ?><option value="<?= $k ?>" <?= $n['plan'] === $k ? 'selected' : '' ?>><?= $t ?></option><?php endforeach; ?></select>
+            <small style="color:#8a88a0;display:block"><?= e($PLAN_NOMBRE[$pn['clave']]) ?><?= $pn['dias'] ? ' · ' . $pn['dias'] . ' d' : '' ?><?= $n['stripe_sub'] ? ' · Stripe' : '' ?></small></form></td>
           <td><?php if ((int)$n['id'] !== (int)$neg['id']): ?><form method="post" action="<?= e(url('negocios')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int)$n['id'] ?>"><button class="btn gris" name="accion" value="neg_entrar">Administrar</button></form><?php else: ?><small>actual</small><?php endif; ?></td></tr>
       <?php endforeach; ?></table></div>
+    <div class="box"><h3>📝 Registro público</h3>
+      <form method="post" action="<?= e(url('negocios')) ?>" class="fila"><?= $csrf ?>
+        <div class="t"><?php if (lc_registro_abierto($db)): ?>Abierto: cualquier negocio puede crear su cuenta en <a href="registro.php" target="_blank"><?= e($base) ?>/registro.php</a> con <?= LC_DIAS_PRUEBA ?> días de prueba.<?php else: ?>Cerrado: solo tú puedes crear negocios.<?php endif; ?></div>
+        <button class="btn gris" name="accion" value="registro"><?= lc_registro_abierto($db) ? 'Cerrar' : 'Abrir' ?></button></form></div>
     <div class="box"><h3>➕ Crear negocio</h3>
       <p style="font-size:13px;color:#8a88a0;margin-bottom:10px">Se crea con servicios de ejemplo según el tipo. El dueño entra a este mismo portal con su usuario y contraseña.</p>
       <form method="post" action="<?= e(url('negocios')) ?>"><?= $csrf ?>
