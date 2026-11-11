@@ -1,3 +1,4 @@
 config.php
+config-claves.php
 uploads/*
 !uploads/.htaccess

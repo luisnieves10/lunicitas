@@ -3,7 +3,7 @@ Options -Indexes
 DirectoryIndex inicio.php index.html
 
 # Archivos que nunca se deben ver desde el navegador
-<FilesMatch "^(config\.php|lib\.php|recordatorios\.php|\.git.*|README\.md)$">
+<FilesMatch "^(config\.php|config-claves\.php|lib\.php|recordatorios\.php|\.git.*|README\.md)$">
   Require all denied
 </FilesMatch>
 

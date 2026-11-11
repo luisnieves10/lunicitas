@@ -18,6 +18,8 @@ function lc_conectar() {
   $ruta = lc_ruta_config();
   if (!$ruta) return null;
   require $ruta;
+  // Claves de Google y Microsoft pueden ir aparte, en config-claves.php (junto a config.php o en esta carpeta).
+  foreach ([dirname($ruta) . '/config-claves.php', __DIR__ . '/config-claves.php'] as $extra) if (is_file($extra)) { require $extra; break; }
   $GLOBALS['LC_CONFIG'] = get_defined_vars();
   $db = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
