@@ -40,7 +40,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($base) < 3) $base .= '-lc';
     $slug = $base; $n = 2;
     $chk = $db->prepare('SELECT COUNT(*) FROM negocios WHERE slug = ?');
-    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal'], true)) break; $slug = $base . '-' . $n++; }
+    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy'], true)) break; $slug = $base . '-' . $n++; }
 
     $id = lc_crear_negocio($db, $nombre, $tipo, $slug, $usuario, $_POST['clave'], $persona);
     $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ?, email = ?, terminos_aceptados = NOW() WHERE id = ?")
@@ -74,7 +74,8 @@ input:focus,select:focus{border-color:#7b5cff;outline:none}
 .ck{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#6b6980;margin:4px 0 6px}.ck input{width:auto;margin:3px 0 0}
 .btn{display:block;width:100%;padding:15px;border:none;border-radius:16px;background:linear-gradient(90deg,#7b5cff,#1fd1c1);color:#fff;font-weight:700;font-size:16px;cursor:pointer;font-family:inherit;margin-top:8px;box-shadow:0 8px 20px rgba(123,92,255,.3)}
 .err{background:#fdecec;color:#c0262c;border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px}
-.trampa{position:absolute;left:-9999px}.pie{text-align:center;font-size:13px;color:#8a88a0}.pie a{color:#7b5cff}
+.trampa{position:absolute;left:-9999px}.pie a{color:#5b45d6}
+.pie{text-align:center;font-size:13px;color:#8a88a0}.pie a{color:#7b5cff}
 </style></head><body><div class="app">
 <div class="top"><img src="logo.svg?v=3" alt="lunicitas"><a href="entrar">Ya tengo cuenta · Entrar</a></div>
 <?php if (!$abierto): ?>
@@ -106,10 +107,10 @@ input:focus,select:focus{border-color:#7b5cff;outline:none}
       <label>Correo</label><input name="email" type="email" maxlength="120" value="<?= e($f['email'] ?? '') ?>" autocomplete="email" required>
       <label>Usuario para entrar</label><input name="usuario" maxlength="40" value="<?= e($f['usuario'] ?? '') ?>" autocomplete="username" pattern="[A-Za-z0-9._\-]{3,40}" required>
       <label>Contraseña (mínimo 8)</label><input name="clave" type="password" minlength="8" autocomplete="new-password" required>
-      <label class="ck"><input type="checkbox" name="acepto" value="1" <?= !empty($f['acepto']) ? 'checked' : '' ?> required> <span>Acepto los <a href="legal.php?p=terminos" target="_blank">Términos y condiciones</a> y la <a href="legal.php?p=privacidad" target="_blank">Política de privacidad</a>, y me comprometo a cuidar los datos de mis clientes.</span></label>
+      <label class="ck"><input type="checkbox" name="acepto" value="1" <?= !empty($f['acepto']) ? 'checked' : '' ?> required> <span>Acepto los <a href="terminos" target="_blank">Términos y condiciones</a> y la <a href="privacidad" target="_blank">Política de privacidad</a>, y me comprometo a cuidar los datos de mis clientes.</span></label>
       <button class="btn">Crear mi cuenta gratis</button>
     </form>
   </div>
-  <p class="pie">LuniCitas es <a href="https://github.com/luisnieves10/lunicitas">código abierto</a> · <a href="legal.php?p=terminos">Términos</a> · <a href="legal.php?p=privacidad">Privacidad</a></p>
+  <p class="pie">LuniCitas es <a href="https://github.com/luisnieves10/lunicitas">código abierto</a> · <a href="terminos">Términos</a> · <a href="privacidad">Privacidad</a></p>
 <?php endif; ?>
 </div></body></html>

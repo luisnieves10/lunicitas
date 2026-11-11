@@ -19,7 +19,7 @@ $mail = '<a href="mailto:' . e($CORREO) . '">' . e($CORREO) . '</a>';
 ?>
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?= e($titulo) ?> – LuniCitas</title><link rel="icon" href="logo.svg?v=3"><meta name="robots" content="index,follow">
+<base href="<?= e(rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/\\')) ?>/"><title><?= e($titulo) ?> – LuniCitas</title><link rel="icon" href="logo.svg?v=3"><meta name="robots" content="index,follow">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:Poppins,'Segoe UI',Helvetica,Arial,sans-serif;background:#f7f7fb;color:#1d1b2e;display:flex;justify-content:center;padding:18px;line-height:1.65}
 .app{width:100%;max-width:760px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;flex-wrap:wrap}.top img{height:38px}
@@ -28,10 +28,10 @@ $mail = '<a href="mailto:' . e($CORREO) . '">' . e($CORREO) . '</a>';
 h1{font-size:26px;line-height:1.25}.vig{color:#8a88a0;font-size:13px;margin:4px 0 18px}
 h2{font-size:17px;margin:22px 0 6px}p,li{font-size:15px;color:#3a3850}p{margin-bottom:8px}ul{margin:0 0 8px 20px}li{margin-bottom:4px}
 a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;margin:10px 0}
-.pie{text-align:center;font-size:12px;color:#a3a1b5;margin-top:20px}
+.pie{text-align:center;font-size:13px;color:#6b6980;margin-top:20px}
 </style></head><body><div class="app">
 <div class="top"><a href="./"><img src="logo.svg?v=3" alt="lunicitas"></a>
-  <span class="tabs"><a href="legal.php?p=terminos" class="<?= $p === 'terminos' ? 'on' : '' ?>">Términos</a><a href="legal.php?p=privacidad" class="<?= $p === 'privacidad' ? 'on' : '' ?>">Privacidad</a></span></div>
+  <span class="tabs"><a href="terminos" class="<?= $p === 'terminos' ? 'on' : '' ?>">Términos</a><a href="privacidad" class="<?= $p === 'privacidad' ? 'on' : '' ?>">Privacidad</a></span></div>
 <div class="box">
 <h1><?= e($titulo) ?></h1><p class="vig">Vigente desde el <?= e($VIGENTE) ?></p>
 
@@ -160,5 +160,5 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <p><?= e($QUIEN) ?> · <?= e($LUGAR) ?> · <?= $mail ?></p>
 <?php endif; ?>
 </div>
-<p class="pie">LuniCitas · <a href="legal.php?p=terminos">Términos</a> · <a href="legal.php?p=privacidad">Privacidad</a></p>
+<p class="pie">LuniCitas · <a href="terminos">Términos</a> · <a href="privacidad">Privacidad</a></p>
 </div></body></html>

@@ -24,7 +24,7 @@ $MC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 $ZONAS = ['America/Puerto_Rico','America/Santo_Domingo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
   'America/Mexico_City','America/Guatemala','America/Panama','America/Bogota','America/Lima','America/Caracas','America/La_Paz',
   'America/Santiago','America/Argentina/Buenos_Aires','America/Sao_Paulo','Europe/Madrid','Europe/Lisbon'];
-$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal'];
+$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy'];
 $ip = lc_ip();
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $super = !empty($_SESSION['super']);
@@ -238,7 +238,7 @@ if ($admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
           'client_reference_id' => $nid, 'metadata' => ['negocio' => $nid], 'subscription_data' => ['metadata' => ['negocio' => $nid]],
           'allow_promotion_codes' => 'true', 'locale' => 'es', 'integration_identifier' => 'lunicitas-pro-qhzvtmbk',
           'custom_text' => ['submit' => ['message' => 'Se renueva cada mes hasta que canceles. Cancela cuando quieras en LuniCitas → Plan; no se te volverá a cobrar. '
-            . 'Al pagar aceptas los Términos (' . lc_base() . '/legal.php?p=terminos).']],
+            . 'Al pagar aceptas los Términos (' . lc_base() . '/terminos).']],
           'success_url' => lc_base() . '/admin.php?v=plan&pago=ok', 'cancel_url' => lc_base() . '/admin.php?v=plan'];
     if ($neg['stripe_cliente']) $p['customer'] = $neg['stripe_cliente']; elseif ($neg['email']) $p['customer_email'] = $neg['email'];
     // Si está en la prueba gratis, conserva los días que le quedan: el primer cobro es al terminar la prueba.
@@ -663,7 +663,7 @@ table.lista{width:100%;border-collapse:collapse;font-size:14px}table.lista td,ta
         <p style="font-size:14px;line-height:1.9">✓ Página de reservas y enlace propio<br>✓ Agenda día, semana y mes<br>✓ Servicios, horario y días libres<br>✓ 1 persona en el equipo<br><span style="color:#b9b7c9">✗ Recordatorios por WhatsApp<br>✗ Análisis, Excel y PDF</span></p></div>
       <div class="box" style="outline:2px solid #7b5cff"><h3>Pro</h3><p class="price" style="font-size:22px"><?= e($precio) ?></p>
         <p style="font-size:14px;line-height:1.9">✓ Todo lo del plan gratis<br>✓ <b>Equipo sin límite</b><br>✓ Recordatorios por WhatsApp<br>✓ Análisis del mes, Excel y PDF<br>✓ Cancela cuando quieras, sin penalidad</p>
-        <p style="font-size:12px;color:#8a88a0;margin:-4px 0 10px">Se cobra cada mes por adelantado con Stripe. <a href="legal.php?p=terminos" target="_blank">Términos</a> · <a href="legal.php?p=privacidad" target="_blank">Privacidad</a></p>
+        <p style="font-size:12px;color:#8a88a0;margin:-4px 0 10px">Se cobra cada mes por adelantado con Stripe. <a href="terminos" target="_blank">Términos</a> · <a href="privacidad" target="_blank">Privacidad</a></p>
         <?php if (lc_stripe_activo()): ?>
           <form method="post" action="<?= e(url('plan')) ?>"><?= $csrf ?>
           <?php if ($pagado): ?><button class="btn gris" name="accion" value="portal" style="width:100%">Administrar pago y recibos</button>
@@ -718,5 +718,5 @@ $PLAN_PRECIO = '$20 al mes';</pre></li>
         <button class="btn" name="accion" value="neg_crear">Crear negocio</button></form></div>
   <?php endif; ?>
 <?php endif; ?>
-<p style="text-align:center;font-size:12px;color:#a3a1b5;margin:20px 0" class="noprint"><a href="legal.php?p=terminos" target="_blank" style="color:#7b5cff">Términos</a> · <a href="legal.php?p=privacidad" target="_blank" style="color:#7b5cff">Privacidad</a></p>
+<p style="text-align:center;font-size:13px;color:#6b6980;margin:20px 0" class="noprint"><a href="terminos" target="_blank" style="color:#7b5cff">Términos</a> · <a href="privacidad" target="_blank" style="color:#7b5cff">Privacidad</a></p>
 </div></body></html>
