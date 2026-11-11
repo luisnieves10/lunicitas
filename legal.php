@@ -81,28 +81,38 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <h2>6. Servicio “tal cual”</h2>
 <p>El Servicio se ofrece <b>“tal cual” y “según disponibilidad”</b>. En la medida que lo permita la ley, no damos garantías de ningún tipo, expresas o implícitas, incluidas las de comerciabilidad, idoneidad para un fin concreto y no infracción. No garantizamos que el Servicio funcione sin interrupciones ni errores, ni que los recordatorios o mensajes lleguen siempre. Te recomendamos descargar tus datos con regularidad (Excel o PDF).</p>
 
-<h2>7. Limitación de responsabilidad</h2>
-<p>En la máxima medida que permita la ley, ni LuniCitas ni <?= e($QUIEN) ?>, ni sus dueños, empleados o colaboradores, serán responsables de daños directos o indirectos, incidentales, especiales, consecuentes o punitivos, ni de pérdida de ganancias, ingresos, clientes, citas o datos, incluidos los que resulten de <b>el cierre de tu cuenta al terminar la prueba, por falta de pago o por cancelación</b>, de fallos del Servicio, de Stripe, del alojamiento o de WhatsApp, o de citas que tus clientes no puedan hacer, aunque se haya advertido de su posibilidad. Si aun así la ley nos hiciera responsables, nuestra responsabilidad total no superará <b>lo que nos hayas pagado en los 3 meses anteriores</b> a la reclamación, o <b>0 USD</b> si no has pagado nada. Algunas jurisdicciones no permiten ciertas limitaciones; en ese caso, se aplican solo en la medida permitida.</p>
+<h2>7. Interrupciones y fin del Servicio</h2>
+<ul>
+  <li><b>Interrupciones:</b> el Servicio puede dejar de funcionar de forma temporal, total o parcial, con o sin aviso, por mantenimiento, actualizaciones, fallos técnicos, ataques informáticos, o fallos del alojamiento, de Internet, de Stripe, de WhatsApp o de otros proveedores.</li>
+  <li><b>Causas fuera de nuestro control:</b> no somos responsables de ningún retraso o fallo causado por huracanes, tormentas, terremotos, inundaciones, apagones, fallos de las telecomunicaciones, pandemias, actos de gobierno, guerras, huelgas u otras causas que no podemos controlar razonablemente.</li>
+  <li><b>Fin del Servicio:</b> podemos cambiar, suspender o terminar el Servicio, en todo o en parte, en cualquier momento y por cualquier razón. Cuando sea posible, avisaremos con antelación por correo o en el portal para que descargues tus datos.</li>
+  <li><b>Tus pagos si el Servicio termina:</b> cancelaremos todas las suscripciones para que <b>Stripe no te vuelva a cobrar</b>. No hay reembolsos por el tiempo restante del periodo ya pagado, salvo que la ley aplicable lo exija.</li>
+  <li><b>Tus datos:</b> eres responsable de tener tu propia copia de tus citas y datos. Después del cierre del Servicio podemos borrar todos los datos sin más aviso.</li>
+  <li>Como LuniCitas es de código abierto, puedes instalar tu propia copia en otro alojamiento si el Servicio deja de estar disponible.</li>
+</ul>
 
-<h2>8. Indemnización</h2>
+<h2>8. Limitación de responsabilidad</h2>
+<p>En la máxima medida que permita la ley, ni LuniCitas ni <?= e($QUIEN) ?>, ni sus dueños, empleados o colaboradores, serán responsables de daños directos o indirectos, incidentales, especiales, consecuentes o punitivos, ni de pérdida de ganancias, ingresos, clientes, citas o datos, incluidos los que resulten de <b>el cierre de tu cuenta al terminar la prueba, por falta de pago o por cancelación</b>, de interrupciones, fallos o la terminación del Servicio, de Stripe, del alojamiento o de WhatsApp, o de citas que tus clientes no puedan hacer, aunque se haya advertido de su posibilidad. Si aun así la ley nos hiciera responsables, nuestra responsabilidad total no superará <b>lo que nos hayas pagado en los 3 meses anteriores</b> a la reclamación, o <b>0 USD</b> si no has pagado nada. Algunas jurisdicciones no permiten ciertas limitaciones; en ese caso, se aplican solo en la medida permitida.</p>
+
+<h2>9. Indemnización</h2>
 <p>Aceptas defender, indemnizar y mantener libre de responsabilidad a LuniCitas y a <?= e($QUIEN) ?> frente a reclamaciones, daños, multas y gastos (incluidos honorarios de abogados) de terceros, incluidos tus clientes, que surjan de tu negocio, de tu uso del Servicio, del cierre de tu cuenta, de los datos que subas o de que incumplas estos términos o la ley.</p>
 
-<h2>9. Servicios de terceros</h2>
+<h2>10. Servicios de terceros</h2>
 <p>El Servicio usa proveedores como Stripe (pagos), nuestro proveedor de alojamiento web y, si los activas, WhatsApp de Meta (recordatorios). Su funcionamiento se rige por sus propios términos y no somos responsables de sus fallos.</p>
 
-<h2>10. Suspensión y cierre</h2>
+<h2>11. Suspensión y cierre</h2>
 <p>La cuenta se cierra sola al terminar la prueba sin tarjeta, cuando no se logra cobrar o al terminar una suscripción cancelada. También podemos suspender o cerrar una cuenta, con o sin aviso, si incumple estos términos, pone en riesgo el Servicio o a otros usuarios, o cuando la ley lo exija. Tú puedes dejar de usar el Servicio cuando quieras.</p>
 
-<h2>11. Código abierto</h2>
+<h2>12. Código abierto</h2>
 <p>El programa de LuniCitas es de código abierto bajo la licencia <a href="https://github.com/luisnieves10/lunicitas/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a>. Estos términos regulan el uso del Servicio en línea que nosotros operamos, no la licencia del código.</p>
 
-<h2>12. Cambios a estos términos</h2>
+<h2>13. Cambios a estos términos</h2>
 <p>Podemos actualizar estos términos. Si el cambio es importante, te avisaremos por correo o en tu portal al menos 15 días antes. Si sigues usando el Servicio después de esa fecha, aceptas los nuevos términos.</p>
 
-<h2>13. Ley aplicable</h2>
+<h2>14. Ley aplicable</h2>
 <p>Estos términos se rigen por las leyes de <?= e($LUGAR) ?> y, cuando apliquen, por las leyes federales de los Estados Unidos. Cualquier disputa se presentará ante los tribunales con competencia en <?= e($LUGAR) ?>, salvo que la ley de protección al consumidor de tu lugar de residencia disponga otra cosa. Si alguna parte de estos términos no fuera válida, el resto sigue vigente.</p>
 
-<h2>14. Contacto</h2>
+<h2>15. Contacto</h2>
 <p><?= e($QUIEN) ?> · <?= e($LUGAR) ?> · <?= $mail ?></p>
 
 <?php else: ?>
