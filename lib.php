@@ -4,7 +4,7 @@
 
 const LC_VERSION_BD = 9;
 const LC_STRIPE_VERSION = '2026-10-28.endive'; // versión fija de la API de Stripe
-const LC_DIAS_PRUEBA = 3; // días de prueba gratis; después la cuenta se cierra hasta que pague
+const LC_DIAS_PRUEBA = 7; // días de prueba gratis; después la cuenta se cierra hasta que pague
 const LC_TIPOS = ['barberia' => 'Barbería', 'salon' => 'Salón de belleza', 'estetica' => 'Estética / spa'];
 const LC_PERSONAL = ['barberia' => 'Barbero', 'salon' => 'Estilista', 'estetica' => 'Especialista'];
 
