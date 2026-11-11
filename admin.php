@@ -778,6 +778,13 @@ $PLAN_PRECIO = '$20 al mes';</pre></li>
   <?php elseif ($v === 'soporte'): include __DIR__ . '/modulos/v_soporte.php'; ?>
   <?php elseif ($v === 'negocios'): ?>
     <?php if (lc_stripe_activo()) include __DIR__ . '/modulos/v_stripe.php'; else { ?><div class="alerta">💳 Stripe todavía <b>no está conectado</b>: faltan la clave y el precio en la configuración. Los negocios no pueden pagar hasta que se configuren.</div><?php } ?>
+    <div class="box"><h3>🔑 <?= lc_stripe_activo() ? 'Cambiar claves de Stripe' : 'Conectar Stripe' ?></h3>
+      <p style="font-size:14px;color:#5a5870">Pega aquí las claves de Stripe. Se guardan solo en tu servidor, en un archivo privado; nunca se muestran otra vez. Deja vacío lo que no quieras cambiar.</p>
+      <form method="post" action="<?= e(url('negocios')) ?>" autocomplete="off"><?= $csrf ?><input type="hidden" name="accion" value="stripe_claves">
+        <label>Clave restringida (rk_live_…) <?= lc_cfg('STRIPE_SECRET') ? '<small>· ya guardada</small>' : '' ?><input type="password" name="stripe_secret" autocomplete="new-password" spellcheck="false"></label>
+        <label>Secreto del webhook (whsec_…) <?= lc_cfg('STRIPE_WEBHOOK_SECRET') ? '<small>· ya guardado</small>' : '' ?><input type="password" name="stripe_whsec" autocomplete="new-password" spellcheck="false"></label>
+        <label>Precio de Pro (price_…)<input name="stripe_price" value="<?= e((string)lc_cfg('STRIPE_PRICE', 'price_1UabPB0e7VTtyM3oHsI2H7S1')) ?>" spellcheck="false"></label>
+        <button class="btn">Guardar y comprobar</button></form></div>
     <div class="box"><h3>🏪 Negocios en la plataforma</h3>
       <table class="lista"><tr><th>Negocio</th><th>Enlace</th><th>Citas</th><th>Plan</th><th></th></tr>
       <?php foreach ($lista as $n): ?>

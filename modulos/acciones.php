@@ -22,6 +22,21 @@ if ($a === 'cobrar') {
   ir($v, null, 'Cobrado: ' . dinero((float)$c['precio'] * (1 - $pct / 100)) . ' con ' . $METODOS[$metodo] . '.');
 }
 
+// ── Conectar Stripe (solo el administrador): guarda las claves en un archivo privado del servidor ──
+if ($a === 'stripe_claves' && $super) {
+  $sec = trim((string)($_POST['stripe_secret'] ?? '')); $wh = trim((string)($_POST['stripe_whsec'] ?? ''));
+  $pr = trim((string)($_POST['stripe_price'] ?? '')) ?: (string)lc_cfg('STRIPE_PRICE');
+  $sec = $sec !== '' ? $sec : (string)lc_cfg('STRIPE_SECRET'); $wh = $wh !== '' ? $wh : (string)lc_cfg('STRIPE_WEBHOOK_SECRET');
+  if (!preg_match('/^[rs]k_(live|test)_[A-Za-z0-9]{20,250}$/', $sec)) ir('negocios', null, 'La clave de Stripe no tiene el formato correcto (empieza con rk_live_…).');
+  if ($wh !== '' && !preg_match('/^whsec_[A-Za-z0-9]{20,200}$/', $wh)) ir('negocios', null, 'El secreto del webhook no tiene el formato correcto (empieza con whsec_…).');
+  if (!preg_match('/^price_[A-Za-z0-9]{8,80}$/', $pr)) ir('negocios', null, 'El precio debe empezar con price_….');
+  $prueba = lc_stripe('prices/' . rawurlencode($pr), [], 'GET', $sec);
+  if (!empty($prueba['error'])) ir('negocios', null, 'Stripe rechazó la clave o el precio: ' . mb_substr((string)($prueba['error']['message'] ?? ''), 0, 160));
+  $ok = lc_guardar_stripe_claves(['STRIPE_SECRET' => $sec, 'STRIPE_PRICE' => $pr, 'STRIPE_WEBHOOK_SECRET' => $wh,
+    'PLAN_PRECIO' => '$' . rtrim(rtrim(number_format(($prueba['unit_amount'] ?? 2000) / 100, 2), '0'), '.') . ' al mes']);
+  ir('negocios', null, $ok ? '✅ Claves de Stripe guardadas en el servidor.' : 'No se pudo escribir el archivo de claves en el servidor.');
+}
+
 // ── Ayuda: chat con soporte y sugerencias ─────────────
 if (in_array($a, ['chat_enviar', 'sugerir'], true) && !$super) {
   $texto = mb_substr(trim(strip_tags((string)($_POST['texto'] ?? ''))), 0, 2000);

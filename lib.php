@@ -20,6 +20,8 @@ function lc_conectar() {
   require $ruta;
   // Claves de Google y Microsoft pueden ir aparte, en config-claves.php (junto a config.php o en esta carpeta).
   foreach ([dirname($ruta) . '/config-claves.php', __DIR__ . '/config-claves.php'] as $extra) if (is_file($extra)) { require $extra; break; }
+  // Claves de Stripe guardadas desde el portal (Negocios → Conectar Stripe). Nunca van al repositorio.
+  if (is_file(lc_ruta_stripe_claves($ruta))) require lc_ruta_stripe_claves($ruta);
   $GLOBALS['LC_CONFIG'] = get_defined_vars();
   $db = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -28,6 +30,20 @@ function lc_conectar() {
   ]);
   lc_migrar($db);
   return $db;
+}
+
+function lc_ruta_stripe_claves($ruta = null) { return dirname($ruta ?: (lc_ruta_config() ?: __FILE__)) . '/stripe-claves.php'; }
+
+// Guarda las claves de Stripe en un archivo privado del servidor (permisos 600), sin pasar por el chat ni por Git.
+function lc_guardar_stripe_claves(array $v) {
+  $txt = "<?php\n// LuniCitas — claves de Stripe (privado, generado desde el portal). No compartir.\n";
+  foreach ($v as $k => $val) if (preg_match('/^[A-Z_]+$/', $k)) $txt .= '$' . $k . ' = ' . var_export((string)$val, true) . ";\n";
+  $dest = lc_ruta_stripe_claves(); $tmp = $dest . '.' . bin2hex(random_bytes(6)) . '.tmp';
+  if (@file_put_contents($tmp, $txt, LOCK_EX) === false) return false;
+  @chmod($tmp, 0600);
+  if (!@rename($tmp, $dest)) { @unlink($tmp); return false; }
+  if (function_exists('opcache_invalidate')) @opcache_invalidate($dest, true);
+  return true;
 }
 
 function lc_cfg($clave, $defecto = null) { return $GLOBALS['LC_CONFIG'][$clave] ?? $defecto; }
@@ -306,11 +322,11 @@ function lc_base() {
 function lc_stripe_activo() { return (bool)lc_cfg('STRIPE_SECRET') && (bool)lc_cfg('STRIPE_PRICE'); }
 
 // $STRIPE_SECRET puede ser una clave restringida (rk_…, recomendada) o secreta (sk_…).
-function lc_stripe($ruta, $params = [], $metodo = 'POST') {
+function lc_stripe($ruta, $params = [], $metodo = 'POST', $clave = null) {
   $url = 'https://api.stripe.com/v1/' . $ruta;
   if ($metodo === 'GET' && $params) $url .= '?' . http_build_query($params);
   $ch = curl_init($url);
-  $op = [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25, CURLOPT_USERPWD => lc_cfg('STRIPE_SECRET') . ':',
+  $op = [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25, CURLOPT_USERPWD => ($clave ?? lc_cfg('STRIPE_SECRET')) . ':',
     CURLOPT_HTTPHEADER => ['Stripe-Version: ' . LC_STRIPE_VERSION]];
   if ($metodo === 'POST') $op += [CURLOPT_POST => true, CURLOPT_POSTFIELDS => http_build_query($params)];
   curl_setopt_array($ch, $op);
