@@ -8,8 +8,8 @@ header('X-Content-Type-Options: nosniff');
 function e($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 lc_conectar(); // carga config.php si existe
-$QUIEN = lc_cfg('LEGAL_NOMBRE', 'Edukatenow');
-$CORREO = lc_cfg('LEGAL_EMAIL', 'lnieves@edukatenowtc.com');
+$QUIEN = lc_cfg('LEGAL_NOMBRE', 'Edukatenow Technology Center');
+$CORREO = lc_cfg('LEGAL_EMAIL', 'luis.nieves.ramos@icloud.com');
 $LUGAR = lc_cfg('LEGAL_LUGAR', 'Puerto Rico');
 $PRECIO = lc_cfg('PLAN_PRECIO', '$20 al mes');
 $VIGENTE = '11 de noviembre de 2026';
