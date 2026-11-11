@@ -40,7 +40,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($base) < 3) $base .= '-lc';
     $slug = $base; $n = 2;
     $chk = $db->prepare('SELECT COUNT(*) FROM negocios WHERE slug = ?');
-    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe'], true)) break; $slug = $base . '-' . $n++; }
+    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar'], true)) break; $slug = $base . '-' . $n++; }
 
     $id = lc_crear_negocio($db, $nombre, $tipo, $slug, $usuario, $_POST['clave'], $persona);
     $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ?, email = ? WHERE id = ?")
@@ -49,7 +49,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     session_regenerate_id(true);
     $_SESSION['neg'] = $id; $_SESSION['super'] = false;
-    $_SESSION['aviso'] = '¡Bienvenido a LuniCitas! Tienes ' . LC_DIAS_PRUEBA . ' días de prueba con todo incluido. Revisa tu horario y servicios, y comparte tu enlace.';
+    $_SESSION['aviso'] = '¡Bienvenido a LuniCitas! Tienes ' . LC_DIAS_PRUEBA . ' días de prueba con todo incluido. Revisa tu horario y servicios, y comparte tu enlace. Para volver a entrar usa ' . ($_SERVER['HTTP_HOST'] ?? '') . '/entrar';
     header('Location: admin.php?v=negocio'); exit;
   }
 }
@@ -76,7 +76,7 @@ input:focus,select:focus{border-color:#7b5cff;outline:none}
 .err{background:#fdecec;color:#c0262c;border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px}
 .trampa{position:absolute;left:-9999px}.pie{text-align:center;font-size:13px;color:#8a88a0}.pie a{color:#7b5cff}
 </style></head><body><div class="app">
-<div class="top"><img src="logo.svg?v=3" alt="lunicitas"><a href="admin.php">Ya tengo cuenta</a></div>
+<div class="top"><img src="logo.svg?v=3" alt="lunicitas"><a href="entrar">Ya tengo cuenta · Entrar</a></div>
 <?php if (!$abierto): ?>
   <div class="box"><h1>Registro cerrado</h1><p class="s">Por ahora no se aceptan negocios nuevos en esta instalación.</p></div>
 <?php else: ?>

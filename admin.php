@@ -24,7 +24,7 @@ $MC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 $ZONAS = ['America/Puerto_Rico','America/Santo_Domingo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
   'America/Mexico_City','America/Guatemala','America/Panama','America/Bogota','America/Lima','America/Caracas','America/La_Paz',
   'America/Santiago','America/Argentina/Buenos_Aires','America/Sao_Paulo','Europe/Madrid','Europe/Lisbon'];
-$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe'];
+$RESERVADOS = ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar'];
 $ip = lc_ip();
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $super = !empty($_SESSION['super']);

@@ -18,6 +18,9 @@ DirectoryIndex index.html
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteRule ^\.git - [F,L]
+# Direcciones cortas
+RewriteRule ^entrar/?$ admin.php [L,QSA]
+RewriteRule ^registro/?$ registro.php [L,QSA]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^([a-z0-9-]{3,40})/$ $1 [R=301,L]
