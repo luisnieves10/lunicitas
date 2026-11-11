@@ -54,7 +54,7 @@ if ($abierto && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($base) < 3) $base .= '-lc';
     $slug = $base; $n = 2;
     $chk = $db->prepare('SELECT COUNT(*) FROM negocios WHERE slug = ?');
-    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth','calendario','contacto','recuperar','modulos'], true)) break; $slug = $base . '-' . $n++; }
+    while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn() && !in_array($slug, ['admin','api','install','index','uploads','lib','config','recordatorios','logo','assets','docs','registro','stripe','entrar','legal','terminos','privacidad','terms','privacy','inicio','manifest','sw','offline','oauth','calendario','contacto','recuperar','modulos','app','app-entrar','perfil-ios','descargas','android'], true)) break; $slug = $base . '-' . $n++; }
 
     $id = lc_crear_negocio($db, $nombre, $tipo, $slug, $usuario, $_POST['clave'], $persona);
     $db->prepare("UPDATE negocios SET plan = 'prueba', prueba_hasta = ?, email = ?, terminos_aceptados = NOW() WHERE id = ?")

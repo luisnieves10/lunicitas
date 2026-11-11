@@ -90,6 +90,12 @@ Los botones aparecen solos cuando sus datos están en `config.php`.
 
 LuniCitas se instala como app desde el navegador (Android: aviso “Instalar”; iPhone: Compartir → Añadir a pantalla de inicio), con icono, pantalla completa y una página para cuando no hay conexión (`manifest.webmanifest`, `sw.js`).
 
+El botón “Instalar la app” reconoce el dispositivo (`assets/app/instalar.js`):
+
+- **Android:** descarga `descargas/LuniCitas.apk`, una app propia (WebView, 90 KB) que abre lunicitas.com, recuerda la última página y abre en la app los enlaces de lunicitas.com (`.well-known/assetlinks.json`). El código está en `android/` y se construye sin Android Studio con `android/construir.sh llave.jks archivo_clave` (Ubuntu: `apt install aapt apksigner zipalign dalvik-exchange android-sdk-platform-23`). **Guarda la llave de firma**: sin ella no se pueden publicar actualizaciones. Entrar con Google/Microsoft desde la app se hace en el navegador y vuelve a la app con un pase de un solo uso (`app-entrar.php`).
+- **iPhone/iPad (Safari):** descarga un perfil de Apple (`perfil-ios.php`) que añade el ícono de la app a la pantalla de inicio y abre a pantalla completa.
+- **Computadoras:** el aviso de instalar de Chrome o Edge.
+
 ### Correo, soporte y dirección oficial
 
 Pon esto en `config-claves.php` (junto a `config.php` o en la carpeta de la app; nunca en GitHub):

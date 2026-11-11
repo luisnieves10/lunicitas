@@ -12,6 +12,21 @@ lc_sesion();
 function b64url($b) { return rtrim(strtr(base64_encode($b), '+/', '-_'), '='); }
 function volver($destino, $msg = '') { if ($msg) $_SESSION['aviso'] = $msg; header('Location: ' . $destino); exit; }
 function entrarComo($negocioId) {
+  global $db, $o;
+  // Si empezó en la app de Android, se entra en la app con un pase de un solo uso (2 minutos) en vez de en este navegador.
+  if (!empty($o['app'])) {
+    $pase = bin2hex(random_bytes(32));
+    $db->exec('DELETE FROM app_pases WHERE expira < NOW()');
+    $db->prepare('INSERT INTO app_pases (hash, negocio_id, expira) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 2 MINUTE))')->execute([hash('sha256', $pase), (int)$negocioId]);
+    $abrir = 'intent://' . parse_url(lc_url_publica($db), PHP_URL_HOST) . '/app-entrar.php?t=' . $pase . '#Intent;scheme=https;package=com.lunicitas.app;end';
+    header('Content-Type: text/html; charset=utf-8'); header('Cache-Control: no-store'); header('Referrer-Policy: no-referrer');
+    echo '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Volver a LuniCitas</title>'
+       . '<style>body{font-family:system-ui,sans-serif;background:#f7f7fb;color:#1d1b2e;display:flex;min-height:90vh;align-items:center;justify-content:center;text-align:center;padding:24px}'
+       . 'a{display:inline-block;margin-top:16px;background:#7b5cff;color:#fff;padding:15px 28px;border-radius:14px;text-decoration:none;font-weight:600;font-size:17px}p{color:#5e5c73}</style></head>'
+       . '<body><div><h1>✅ Listo</h1><p>Ya entraste. Toca el botón para volver a la app.</p><a href="' . htmlspecialchars($abrir) . '">Abrir LuniCitas</a></div>'
+       . '<script>location.href=' . json_encode($abrir) . ';</script></body></html>';
+    exit;
+  }
   session_regenerate_id(true);
   $_SESSION['neg'] = (int)$negocioId; $_SESSION['super'] = false;
   volver('admin.php');
@@ -26,8 +41,9 @@ if (isset($_GET['p'])) {
   if (!isset($activos[$p])) volver('admin.php', 'Esa forma de entrar no está disponible.');
   if ($para === 'conectar' && empty($_SESSION['neg'])) volver('admin.php', 'Entra primero para conectar tu cuenta.');
   $verificador = b64url(random_bytes(32));
+  if (!empty($_GET['app']) && $para === 'conectar') volver('admin.php', 'Para conectar tu cuenta de Google o Microsoft, entra a lunicitas.com desde el navegador.');
   $_SESSION['oauth'] = ['p' => $p, 'para' => $para, 'state' => b64url(random_bytes(24)), 'nonce' => b64url(random_bytes(24)),
-                        'verificador' => $verificador, 't' => time()];
+                        'verificador' => $verificador, 't' => time(), 'app' => !empty($_GET['app'])];
   $cfg = $activos[$p]['cfg'];
   header('Location: ' . $activos[$p]['auth'] . '?' . http_build_query([
     'response_type' => 'code', 'client_id' => lc_cfg($cfg . '_CLIENT_ID'), 'redirect_uri' => $redirect,

@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.lunicitas.app",
+    "sha256_cert_fingerprints": ["43:90:0B:CD:1D:D6:BE:9D:D7:6A:32:13:17:0A:B4:B0:33:66:E5:67:CB:68:DC:B2:90:BD:99:FC:DA:9C:A5:87"]
+  }
+}]

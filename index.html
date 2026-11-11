@@ -154,7 +154,7 @@ b.textContent=t('doBook');chk()}
 async function init(){
 try{let r=await fetch('api.php?n='+encodeURIComponent(N)+(REF?'&ref='+encodeURIComponent(REF):''));if(r.status===503){location.href='install.php';return}if(!r.ok){err='e404'}else D=await r.json()}catch(e){err='eNet'}
 if(err){$('fallo').classList.remove('hide');setL(L);return}
-let n=D.negocio;$('nom').textContent=n.nombre;$('ico').textContent=(n.foto||HERO[n.tipo])?'':(ICO[n.tipo]||'');$('addr').textContent=n.direccion?'📍 '+n.direccion:'';$('desc').textContent=n.descripcion;
+let n=D.negocio;try{let r=JSON.parse(localStorage.getItem('lc-negocios')||'[]').filter(x=>x.s!==n.slug);r.unshift({s:n.slug,n:n.nombre});localStorage.setItem('lc-negocios',JSON.stringify(r.slice(0,6)))}catch(e){}$('nom').textContent=n.nombre;$('ico').textContent=(n.foto||HERO[n.tipo])?'':(ICO[n.tipo]||'');$('addr').textContent=n.direccion?'📍 '+n.direccion:'';$('desc').textContent=n.descripcion;
 let img=n.foto||HERO[n.tipo];if(img)$('hero').style.backgroundImage=`url("${encodeURI(img)}")`;
 if(n.telefono)$('tel').href='tel:'+n.telefono.replace(/[^0-9+]/g,'');
 if(D.registro)$('pie').classList.remove('hide');

@@ -9,6 +9,12 @@ DirectoryIndex inicio.php index.html
 
 # App instalable
 AddType application/manifest+json .webmanifest
+AddType application/vnd.android.package-archive .apk
+AddType application/x-apple-aspen-config .mobileconfig
+<FilesMatch "\.apk$">
+  Header set Content-Disposition "attachment; filename=LuniCitas.apk"
+  Header set Cache-Control "no-cache"
+</FilesMatch>
 <IfModule mod_headers.c>
   <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
     Header set Cache-Control "no-cache"
@@ -30,6 +36,7 @@ RewriteRule ^\.git - [F,L]
 RewriteRule ^entrar/?$ admin.php [L,QSA]
 RewriteRule ^registro/?$ registro.php [L,QSA]
 RewriteRule ^contacto/?$ contacto.php [L,QSA]
+RewriteRule ^app/?$ app.php [L,QSA]
 RewriteRule ^recuperar/?$ recuperar.php [L,QSA]
 RewriteRule ^(terminos|terms)/?$ legal.php?p=terminos [L]
 RewriteRule ^(privacidad|privacy)/?$ legal.php?p=privacidad [L]

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LuniCitas para Android: la página de LuniCitas dentro de una app instalable. Licencia AGPL-3.0 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.lunicitas.app" android:versionCode="1" android:versionName="1.0">
+  <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+  <application android:label="LuniCitas" android:icon="@mipmap/ic_launcher" android:allowBackup="false"
+      android:usesCleartextTraffic="false" android:theme="@style/Tema">
+    <activity android:name=".Principal" android:exported="true" android:launchMode="singleTask"
+        android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
+        android:windowSoftInputMode="adjustResize">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+      <!-- Los enlaces de lunicitas.com (por ejemplo, los que llegan por WhatsApp) se abren en la app. -->
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" android:host="lunicitas.com" />
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>

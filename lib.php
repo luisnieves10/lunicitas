@@ -2,7 +2,7 @@
 // LuniCitas — funciones compartidas por api.php, admin.php, install.php y recordatorios.php
 // Licencia AGPL-3.0
 
-const LC_VERSION_BD = 8;
+const LC_VERSION_BD = 9;
 const LC_STRIPE_VERSION = '2026-10-28.endive'; // versión fija de la API de Stripe
 const LC_DIAS_PRUEBA = 3; // días de prueba gratis; después la cuenta se cierra hasta que pague
 const LC_TIPOS = ['barberia' => 'Barbería', 'salon' => 'Salón de belleza', 'estetica' => 'Estética / spa'];
@@ -173,6 +173,10 @@ function lc_migrar($db) {
   if (!lc_columna($db, 'equipo', 'comision')) $db->exec('ALTER TABLE equipo ADD comision DECIMAL(5,2) NOT NULL DEFAULT 0');
   if (!lc_columna($db, 'negocios', 'promos')) $db->exec("ALTER TABLE negocios ADD promos TEXT NULL");
 
+  // Versión 9: pase de un solo uso para volver a la app de Android después de entrar con Google o Microsoft
+  $db->exec("CREATE TABLE IF NOT EXISTS app_pases (
+    hash CHAR(64) PRIMARY KEY, negocio_id INT NOT NULL, expira DATETIME NOT NULL) CHARACTER SET utf8mb4");
+
   // Versión 7: el usuario puede ser un correo; cuentas de Google o Microsoft conectadas a cada negocio
   if ($ver >= 1 && $ver < 7) $db->exec('ALTER TABLE negocios MODIFY usuario VARCHAR(120) NOT NULL');
   $db->exec("CREATE TABLE IF NOT EXISTS identidades (
@@ -307,6 +311,9 @@ function lc_meta($db, $k, $defecto = null) {
 }
 function lc_meta_set($db, $k, $v) { $db->prepare('REPLACE INTO lc_meta (k, v) VALUES (?, ?)')->execute([$k, (string)$v]); }
 function lc_registro_abierto($db) { return lc_meta($db, 'registro', '1') === '1'; }
+
+// ¿La página se abrió dentro de la app de Android de LuniCitas?
+function lc_en_app() { return strpos((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 'LuniCitasApp/') !== false; }
 
 function lc_sesion() {
   if (session_status() === PHP_SESSION_ACTIVE) return;

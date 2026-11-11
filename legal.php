@@ -106,10 +106,11 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
 <h2>10. App instalada, archivos de calendario y tu dispositivo</h2>
 <ul>
   <li>Puedes instalar LuniCitas, o la página de un negocio, en tu celular, tableta o computadora (Android, iPhone, iPad, Windows u otros), y guardar tus citas en tu calendario (Apple, Google, Outlook u otros). Hacerlo es <b>opcional y bajo tu propio riesgo</b>.</li>
-  <li>La app instalada es la misma página web que abre tu navegador; la instalación la hacen tu navegador y tu sistema operativo, no nosotros. Se ofrece “tal cual”, sin garantía de que funcione en todos los dispositivos o versiones.</li>
+  <li>La app instalada muestra la misma página web de LuniCitas. Según tu dispositivo se instala de una de estas formas: en <b>Android</b>, con el archivo de la app de LuniCitas (LuniCitas.apk) que descargas desde lunicitas.com y que no viene de Google Play, por lo que Android te pide permiso para instalarlo; en <b>iPhone y iPad</b>, con un perfil de configuración de Apple que solo añade el ícono de la app a tu pantalla de inicio (Apple puede mostrarlo como “No verificado”); y en computadoras, desde tu navegador. Tú decides si das esos permisos. Descarga la app solo desde lunicitas.com: no somos responsables de copias obtenidas en otros sitios.</li>
+  <li>La app se ofrece “tal cual”, sin garantía de que funcione en todos los dispositivos o versiones, ni de que Android, Apple, Google Play Protect u otros programas de seguridad no muestren avisos al instalarla.</li>
   <li>En la máxima medida que permita la ley, <b>LuniCitas y <?= e($QUIEN) ?> no son responsables de ningún daño, fallo, pérdida de datos, mal funcionamiento, consumo de batería o datos, ni de ningún otro perjuicio a tu dispositivo, a sus programas o a tu información</b> que resulte de instalar, usar o desinstalar la app, de añadir citas a tu calendario o de las actualizaciones de tu navegador o sistema.</li>
   <li>Los datos que se guardan en tu calendario son una copia: si el negocio cambia la cita, tu calendario no se actualiza solo. Confirma siempre con el negocio.</li>
-  <li>Puedes desinstalar la app o borrar el evento del calendario cuando quieras, como cualquier otra app o evento.</li>
+  <li>Puedes desinstalar la app o borrar el evento del calendario cuando quieras, como cualquier otra app o evento. En iPhone, el perfil se borra en Ajustes &gt; General &gt; VPN y gestión de dispositivos.</li>
 </ul>
 
 <h2>11. Interrupciones y fin del Servicio</h2>
@@ -165,6 +166,7 @@ a{color:#7b5cff}.clave{background:#f1edff;border-radius:12px;padding:12px 14px;m
   <li><b>De soporte:</b> los mensajes del chat de Ayuda y del formulario de contacto (nombre, correo y lo que escribas), para responderte.</li>
   <li><b>Si entras con Google o Microsoft:</b> recibimos de ellos tu nombre, tu correo y un identificador de tu cuenta, solo para reconocerte cuando entras. No recibimos tu contraseña ni accedemos a tu correo, tus contactos ni tus archivos.</li>
   <li><b>De pagos:</b> el identificador de cliente y de suscripción de Stripe y el estado del pago. Los datos de la tarjeta los recibe y guarda solo Stripe; nunca pasan por nuestros servidores.</li>
+  <li><b>De la app instalada:</b> la app de Android y el perfil de iPhone no leen tus contactos, fotos, ubicación ni otras apps. La app de Android solo guarda en tu teléfono la última página que abriste (tu negocio o tu agenda) para abrirla la próxima vez, y usa la misma cookie de sesión que el navegador. Las fotos solo se envían si tú eliges una para subirla.</li>
   <li><b>Técnicos:</b> una cookie de sesión necesaria para mantenerte conectado en el portal, y una huella cifrada de la dirección IP para frenar abusos (intentos de acceso y registros repetidos). No usamos cookies de publicidad ni herramientas de rastreo.</li>
 </ul>
 
