@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LuniCitas – Reserva tu cita</title>
+<title>LuniCitas</title>
 <link rel="icon" href="logo.svg">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--m:#7b5cff;--t:#1fd1c1;--g:linear-gradient(90deg,#7b5cff,#1fd1c1);--soft:#f1edff}
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:Poppins,sans-serif;background:#f7f7fb;color:#1d1b2e;min-height:100vh;display:flex;justify-content:center}
 .app{width:100%;max-width:440px;padding:18px 18px 40px}
-.brand{text-align:center;margin-bottom:14px}.brand img{height:42px}
+.brand{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.brand img{height:38px}
+.langs{display:flex;gap:4px}.langs button,.fmt button{border:none;border-radius:10px;padding:6px 10px;font-family:inherit;font-size:12px;font-weight:600;background:#ebe9f3;color:#6b6980;cursor:pointer}.langs button.on,.fmt button.on{background:var(--g);color:#fff}
 .hero{border-radius:22px;overflow:hidden;position:relative;height:200px;background:url(https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=900) center/cover;box-shadow:0 10px 30px rgba(123,92,255,.18)}
 .hero:after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(29,27,46,.85))}
 .hero h1{position:absolute;bottom:26px;left:16px;z-index:1;font-size:25px;color:#fff}.hero p{position:absolute;bottom:8px;left:16px;z-index:1;color:#e5e5f0;font-size:13px}
@@ -17,7 +18,8 @@ h2{font-size:18px;margin:22px 0 12px}.steps{display:flex;gap:6px;margin-top:10px
 .card img{width:52px;height:52px;border-radius:50%;object-fit:cover}.card .t{flex:1}.card b{display:block}.card small{color:#8a88a0}.price{color:var(--m);font-weight:700}
 .days{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}.day{min-width:62px;text-align:center;background:#fff;border-radius:16px;padding:10px 0;cursor:pointer;border:2px solid transparent;box-shadow:0 2px 10px rgba(0,0,0,.05)}
 .day.sel{background:var(--g);color:#fff}.day small{color:inherit;opacity:.7;display:block;font-size:11px}
-.hours{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.hour{background:#fff;border-radius:14px;padding:12px 0;text-align:center;cursor:pointer;border:2px solid transparent;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.fmt{display:flex;justify-content:flex-end;gap:4px;margin-top:14px}
+.hours{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.hour{background:#fff;border-radius:14px;padding:12px 0;text-align:center;cursor:pointer;border:2px solid transparent;box-shadow:0 2px 10px rgba(0,0,0,.05);font-size:15px}
 .hour.sel{background:var(--g);color:#fff}.hour.off{opacity:.35;pointer-events:none;text-decoration:line-through;box-shadow:none}
 .msg{grid-column:1/-1;color:#8a88a0;text-align:center}
 input{width:100%;padding:15px;border-radius:16px;border:2px solid #e4e2ee;background:#fff;color:#1d1b2e;font-size:16px;margin-bottom:10px;font-family:inherit;outline:none}input:focus{border-color:var(--m)}
@@ -27,53 +29,78 @@ input{width:100%;padding:15px;border-radius:16px;border:2px solid #e4e2ee;backgr
 .sum{background:#fff;border-radius:18px;padding:16px;line-height:1.9;box-shadow:0 2px 10px rgba(0,0,0,.05)}.ok{text-align:center;padding-top:30px}.ok .c{font-size:64px}
 .hide{display:none}.info{display:flex;gap:14px;color:#8a88a0;font-size:13px;margin-top:14px}
 </style></head><body><div class="app">
-<div class="brand"><img src="logo.svg" alt="lunicitas"></div>
-<section id="s0"><div class="hero"><h1>Barbería El Estilo</h1><p>★ 4.9 · Abierto hoy 9:00 – 19:00</p></div>
-<div class="info"><span>📍 Calle Principal 123</span><span>📞 Llamar</span></div>
-<p style="color:#6b6980;margin-top:16px;font-size:14px">Cortes clásicos y modernos, barba y más. Reserva en menos de un minuto, sin crear cuenta.</p>
-<button class="btn" onclick="go(1)">Reservar cita</button></section>
+<div class="brand"><img src="logo.svg" alt="lunicitas"><div class="langs"><button id="l-es" onclick="setL('es')">ES</button><button id="l-en" onclick="setL('en')">EN</button><button id="l-pt" onclick="setL('pt')">PT</button></div></div>
+<section id="s0"><div class="hero"><h1>Barbería El Estilo</h1><p id="abierto"></p></div>
+<div class="info"><span>📍 <span data-i="addr"></span></span><span>📞 <span data-i="call"></span></span></div>
+<p style="color:#6b6980;margin-top:16px;font-size:14px" data-i="desc"></p>
+<button class="btn" onclick="go(1)" data-i="book"></button></section>
 <section id="s1" class="hide"><div class="steps"><span class="on"></span><span></span><span></span></div>
-<h2>¿Qué te hacemos hoy?</h2><div id="svc"></div><h2>Elige tu barbero</h2><div id="brb"></div>
-<button class="btn" id="b1" disabled onclick="go(2)">Continuar</button><button class="btn back" onclick="go(0)">← Atrás</button></section>
+<h2 data-i="q1"></h2><div id="svc"></div><h2 data-i="q2"></h2><div id="brb"></div>
+<button class="btn" id="b1" disabled onclick="go(2)" data-i="next"></button><button class="btn back" onclick="go(0)" data-i="back"></button></section>
 <section id="s2" class="hide"><div class="steps"><span class="on"></span><span class="on"></span><span></span></div>
-<h2>¿Cuándo vienes?</h2><div class="days" id="days"></div><div class="hours" id="hours"></div>
-<button class="btn" id="b2" disabled onclick="go(3)">Continuar</button><button class="btn back" onclick="go(1)">← Atrás</button></section>
+<h2 data-i="when"></h2><div class="days" id="days"></div>
+<div class="fmt"><button id="f12" onclick="setF(12)">12 h</button><button id="f24" onclick="setF(24)">24 h</button></div>
+<div class="hours" id="hours"></div>
+<button class="btn" id="b2" disabled onclick="go(3)" data-i="next"></button><button class="btn back" onclick="go(1)" data-i="back"></button></section>
 <section id="s3" class="hide"><div class="steps"><span class="on"></span><span class="on"></span><span class="on"></span></div>
-<h2>Confirma tu cita</h2><div class="sum" id="sum"></div><h2>Tus datos</h2>
-<input id="nm" maxlength="80" placeholder="Tu nombre" oninput="chk()"><input id="ph" type="tel" maxlength="20" placeholder="Tu teléfono (WhatsApp)" oninput="chk()">
+<h2 data-i="confirm"></h2><div class="sum" id="sum"></div><h2 data-i="data"></h2>
+<input id="nm" maxlength="80" data-ph="name" oninput="chk()"><input id="ph" type="tel" maxlength="20" data-ph="phone" oninput="chk()">
 <p class="err" id="err"></p>
-<button class="btn" id="b3" disabled onclick="reservar()">Confirmar reserva</button><button class="btn back" onclick="go(2)">← Atrás</button></section>
-<section id="s4" class="hide ok"><div class="c">🎉</div><h2>¡Listo, <span id="who"></span>!</h2>
-<p style="color:#6b6980">Tu cita quedó reservada. Te enviaremos un recordatorio por WhatsApp.</p><div class="sum" id="sum2" style="margin-top:18px;text-align:left"></div>
-<button class="btn" onclick="location.reload()">Volver al inicio</button></section>
+<button class="btn" id="b3" disabled onclick="reservar()" data-i="doBook"></button><button class="btn back" onclick="go(2)" data-i="back"></button></section>
+<section id="s4" class="hide ok"><div class="c">🎉</div><h2><span data-i="done"></span> <span id="who"></span>!</h2>
+<p style="color:#6b6980" data-i="doneTxt"></p><div class="sum" id="sum2" style="margin-top:18px;text-align:left"></div>
+<button class="btn" onclick="location.reload()" data-i="home"></button></section>
 </div>
 <script>
-const S=[["Corte clásico","30 min",12],["Corte + barba","45 min",18],["Fade / degradado","40 min",15],["Arreglo de barba","20 min",8]];
-const B=[["Carlos","Especialista en fades","https://i.pravatar.cc/100?img=12"],["Miguel","Cortes clásicos","https://i.pravatar.cc/100?img=33"],["Andrés","Barbas y diseños","https://i.pravatar.cc/100?img=59"],["Cualquiera","El primero disponible","https://i.pravatar.cc/100?img=68"]];
+const T={
+es:{title:'Reserva tu cita',open:'Abierto hoy',addr:'Calle Principal 123',call:'Llamar',desc:'Cortes clásicos y modernos, barba y más. Reserva en menos de un minuto, sin crear cuenta.',book:'Reservar cita',q1:'¿Qué te hacemos hoy?',q2:'Elige tu barbero',next:'Continuar',back:'← Atrás',when:'¿Cuándo vienes?',pickDay:'Elige un día para ver los horarios',loading:'Cargando horarios…',confirm:'Confirma tu cita',data:'Tus datos',name:'Tu nombre',phone:'Tu teléfono (WhatsApp)',doBook:'Confirmar reserva',booking:'Reservando…',done:'¡Listo,',doneTxt:'Tu cita quedó reservada. Te esperamos.',home:'Volver al inicio',with:'Con',at:'a las',total:'Total',today:'Hoy',days:['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],svc:['Corte clásico','Corte + barba','Fade / degradado','Arreglo de barba'],brb:['Especialista en fades','Cortes clásicos','Barbas y diseños','El primero disponible'],any:'Cualquiera',am:' a. m.',pm:' p. m.',e400:'Revisa los datos de tu reserva',e409:'Esa hora acaba de ocuparse, elige otra',e429:'Demasiadas reservas, intenta más tarde',eNet:'Sin conexión, intenta de nuevo',eGen:'No se pudo reservar'},
+en:{title:'Book your appointment',open:'Open today',addr:'123 Main Street',call:'Call',desc:'Classic and modern cuts, beards and more. Book in under a minute, no account needed.',book:'Book appointment',q1:'What can we do for you today?',q2:'Choose your barber',next:'Continue',back:'← Back',when:'When are you coming?',pickDay:'Pick a day to see available times',loading:'Loading times…',confirm:'Confirm your appointment',data:'Your details',name:'Your name',phone:'Your phone (WhatsApp)',doBook:'Confirm booking',booking:'Booking…',done:'All set,',doneTxt:'Your appointment is booked. See you soon.',home:'Back to start',with:'With',at:'at',total:'Total',today:'Today',days:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],svc:['Classic cut','Cut + beard','Fade','Beard trim'],brb:['Fade specialist','Classic cuts','Beards and designs','First available'],any:'Anyone',am:' AM',pm:' PM',e400:'Please check your booking details',e409:'That time was just taken, please pick another',e429:'Too many bookings, try again later',eNet:'No connection, please try again',eGen:'Could not complete the booking'},
+pt:{title:'Agende seu horário',open:'Aberto hoje',addr:'Rua Principal 123',call:'Ligar',desc:'Cortes clássicos e modernos, barba e mais. Agende em menos de um minuto, sem criar conta.',book:'Agendar horário',q1:'O que vamos fazer hoje?',q2:'Escolha seu barbeiro',next:'Continuar',back:'← Voltar',when:'Quando você vem?',pickDay:'Escolha um dia para ver os horários',loading:'Carregando horários…',confirm:'Confirme seu horário',data:'Seus dados',name:'Seu nome',phone:'Seu telefone (WhatsApp)',doBook:'Confirmar agendamento',booking:'Agendando…',done:'Pronto,',doneTxt:'Seu horário está agendado. Te esperamos.',home:'Voltar ao início',with:'Com',at:'às',total:'Total',today:'Hoje',days:['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],svc:['Corte clássico','Corte + barba','Degradê','Barba'],brb:['Especialista em degradê','Cortes clássicos','Barbas e desenhos','O primeiro disponível'],any:'Qualquer um',am:' AM',pm:' PM',e400:'Confira os dados do agendamento',e409:'Esse horário acabou de ser ocupado, escolha outro',e429:'Muitos agendamentos, tente mais tarde',eNet:'Sem conexão, tente novamente',eGen:'Não foi possível agendar'}};
+// Los nombres en español son los que se guardan en la base de datos; no cambiarlos.
+const S=[["Corte clásico",30,12],["Corte + barba",45,18],["Fade / degradado",40,15],["Arreglo de barba",20,8]];
+const B=[["Carlos","https://i.pravatar.cc/100?img=12"],["Miguel","https://i.pravatar.cc/100?img=33"],["Andrés","https://i.pravatar.cc/100?img=59"],["Cualquiera","https://i.pravatar.cc/100?img=68"]];
 const H=['9:00','9:45','10:30','11:15','12:00','14:00','14:45','15:30','16:15','17:00','17:45','18:30'];
-const dn=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-let st={};const $=i=>document.getElementById(i);
-function go(n){for(let i=0;i<5;i++)$('s'+i).classList.toggle('hide',i!==n);window.scrollTo(0,0);if(n==2)initDays();if(n>=3)fill()}
+const $=i=>document.getElementById(i);
+let st={},oc=[],F=localStorage.getItem('fmt')==='24'?24:12;
+let L=localStorage.getItem('lang')||(navigator.language||'es').slice(0,2);if(!T[L])L='es';
+const t=k=>T[L][k];
+function bName(i){return i==3?t('any'):B[i][0]}
+function fmt(x){if(F==24)return x;let[h,m]=x.split(':').map(Number);return (h%12||12)+':'+String(m).padStart(2,'0')+(h<12?t('am'):t('pm'))}
 function iso(x){return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
-$('svc').innerHTML=S.map((s,i)=>`<div class="card" onclick="pick('svc',${i},this)"><div class="t"><b>${s[0]}</b><small>${s[1]}</small></div><span class="price">$${s[2]}</span></div>`).join('');
-$('brb').innerHTML=B.map((b,i)=>`<div class="card" onclick="pick('brb',${i},this)"><img src="${b[2]}"><div class="t"><b>${b[0]}</b><small>${b[1]}</small></div></div>`).join('');
-function initDays(){delete st.day;delete st.hr;delete st.f;let d=new Date(),dh='';
-for(let i=0;i<7;i++){let x=new Date(d);x.setDate(d.getDate()+i);let l=(i==0?'Hoy':dn[x.getDay()]);
-dh+=`<div class="day" onclick="pick('day',${i},this)" data-f="${iso(x)}" data-l="${l} ${x.getDate()}"><small>${l}</small><b>${x.getDate()}</b></div>`}
-$('days').innerHTML=dh;$('hours').innerHTML='<p class="msg">Elige un día para ver los horarios</p>';upd()}
-async function hours(){$('hours').innerHTML='<p class="msg">Cargando horarios…</p>';let oc=[];
+function setL(l){L=l;localStorage.setItem('lang',l);document.documentElement.lang=l;document.title='LuniCitas – '+t('title');
+['es','en','pt'].forEach(x=>$('l-'+x).classList.toggle('on',x==l));
+document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
+document.querySelectorAll('[data-ph]').forEach(e=>e.placeholder=t(e.dataset.ph));
+drawCards();setF(F);if(!$('s2').classList.contains('hide'))drawDays();if(st.hr!=null||!$('s3').classList.contains('hide')||!$('s4').classList.contains('hide'))fill()}
+function setF(n){F=n;localStorage.setItem('fmt',n);$('f12').classList.toggle('on',n==12);$('f24').classList.toggle('on',n==24);
+$('abierto').textContent='★ 4.9 · '+t('open')+' '+fmt('9:00')+' – '+fmt('19:00');if(st.f)drawHours()}
+function drawCards(){
+$('svc').innerHTML=S.map((s,i)=>`<div class="card ${st.svc===i?'sel':''}" onclick="pick('svc',${i},this)"><div class="t"><b>${t('svc')[i]}</b><small>${s[1]} min</small></div><span class="price">$${s[2]}</span></div>`).join('');
+$('brb').innerHTML=B.map((b,i)=>`<div class="card ${st.brb===i?'sel':''}" onclick="pick('brb',${i},this)"><img src="${b[1]}" alt=""><div class="t"><b>${bName(i)}</b><small>${t('brb')[i]}</small></div></div>`).join('')}
+function go(n){for(let i=0;i<5;i++)$('s'+i).classList.toggle('hide',i!==n);window.scrollTo(0,0);if(n==2)initDays();if(n>=3)fill()}
+function initDays(){delete st.day;delete st.hr;delete st.f;drawDays();$('hours').innerHTML=`<p class="msg">${t('pickDay')}</p>`;upd()}
+function dayLabel(i,x){return (i==0?t('today'):t('days')[x.getDay()])}
+function drawDays(){let d=new Date(),dh='';
+for(let i=0;i<7;i++){let x=new Date(d);x.setDate(d.getDate()+i);let l=dayLabel(i,x);
+dh+=`<div class="day ${st.day===i?'sel':''}" onclick="pick('day',${i},this)" data-f="${iso(x)}"><small>${l}</small><b>${x.getDate()}</b></div>`}
+$('days').innerHTML=dh;if(st.day!=null){let x=new Date();x.setDate(x.getDate()+st.day);st.dl=dayLabel(st.day,x)+' '+x.getDate()}}
+async function hours(){$('hours').innerHTML=`<p class="msg">${t('loading')}</p>`;oc=[];
 try{let r=await fetch('api.php?fecha='+st.f+'&barbero='+encodeURIComponent(B[st.brb][0]));let j=await r.json();oc=j.ocupadas||[]}catch(e){}
-let now=new Date(),hoy=iso(now)===st.f,min=now.getHours()*60+now.getMinutes();
-$('hours').innerHTML=H.map(t=>{let[h,m]=t.split(':').map(Number);let off=oc.includes(t)||(hoy&&h*60+m<=min);
-return `<div class="hour ${off?'off':''}" onclick="pick('hr','${t}',this)">${t}</div>`}).join('')}
+drawHours()}
+function drawHours(){let now=new Date(),hoy=iso(now)===st.f,min=now.getHours()*60+now.getMinutes();
+$('hours').innerHTML=H.map(x=>{let[h,m]=x.split(':').map(Number);let off=oc.includes(x)||(hoy&&h*60+m<=min);
+return `<div class="hour ${off?'off':''} ${st.hr===x?'sel':''}" onclick="pick('hr','${x}',this)">${fmt(x)}</div>`}).join('')}
 function pick(k,v,el){el.parentNode.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');st[k]=v;
-if(k=='day'){st.dl=el.dataset.l;st.f=el.dataset.f;delete st.hr;hours()}upd()}
+if(k=='day'){st.f=el.dataset.f;delete st.hr;drawDays();hours()}upd()}
 function upd(){$('b1').disabled=!(st.svc!=null&&st.brb!=null);$('b2').disabled=!(st.day!=null&&st.hr)}
 function chk(){$('b3').disabled=!($('nm').value.trim().length>1&&$('ph').value.replace(/[^0-9]/g,'').length>6)}
-function fill(){let s=S[st.svc];let t=`✂️ <b>${s[0]}</b> · ${s[1]}<br>👤 Con <b>${B[st.brb][0]}</b><br>📅 <b>${st.dl}</b> a las <b>${st.hr}</b><br>💵 Total: <b class="price">$${s[2]}</b>`;$('sum').innerHTML=t;$('sum2').innerHTML=t;$('who').textContent=$('nm').value.trim().split(' ')[0]}
-async function reservar(){let b=$('b3');b.disabled=true;b.textContent='Reservando…';$('err').textContent='';
+function fill(){if(st.svc==null||st.hr==null)return;let s=S[st.svc];
+let x=`✂️ <b>${t('svc')[st.svc]}</b> · ${s[1]} min<br>👤 ${t('with')} <b>${bName(st.brb)}</b><br>📅 <b>${st.dl}</b> ${t('at')} <b>${fmt(st.hr)}</b><br>💵 ${t('total')}: <b class="price">$${s[2]}</b>`;
+$('sum').innerHTML=x;$('sum2').innerHTML=x;$('who').textContent=$('nm').value.trim().split(' ')[0]}
+async function reservar(){let b=$('b3');b.disabled=true;b.textContent=t('booking');$('err').textContent='';
 try{let r=await fetch('api.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({servicio:S[st.svc][0],barbero:B[st.brb][0],fecha:st.f,hora:st.hr,nombre:$('nm').value,telefono:$('ph').value})});
-let j=await r.json();if(r.ok){fill();go(4)}else{$('err').textContent=j.error||'No se pudo reservar'}}
-catch(e){$('err').textContent='Sin conexión, intenta de nuevo'}
-b.textContent='Confirmar reserva';chk()}
+if(r.ok){fill();go(4)}else{$('err').textContent=t({400:'e400',409:'e409',429:'e429'}[r.status]||'eGen')}}
+catch(e){$('err').textContent=t('eNet')}
+b.textContent=t('doBook');chk()}
+setL(L);
 </script></body></html>
