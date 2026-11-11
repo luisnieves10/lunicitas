@@ -1,1 +1,63 @@
 <!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LuniCitas – Reserva tu cita</title>
+<link rel="icon" href="logo.svg">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:Poppins,sans-serif;background:#0f0f10;color:#f2f2f2;min-height:100vh;display:flex;justify-content:center}
+.app{width:100%;max-width:440px;padding:20px 18px 40px}
+.brand{display:flex;align-items:center;justify-content:center;gap:8px;color:#d4a94f;font-weight:700;letter-spacing:2px;font-size:14px;margin-bottom:14px}.brand img{width:34px;height:34px}
+.hero{border-radius:20px;overflow:hidden;position:relative;height:200px;background:url(https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=900) center/cover}
+.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(transparent,#0f0f10)}
+.hero h1{position:absolute;bottom:14px;left:16px;z-index:1;font-size:26px}.hero p{position:absolute;bottom:-2px;left:16px;z-index:1;color:#aaa;font-size:13px}
+h2{font-size:18px;margin:22px 0 12px}.steps{display:flex;gap:6px;margin-top:18px}.steps span{flex:1;height:4px;border-radius:4px;background:#2a2a2d}.steps span.on{background:#d4a94f}
+.card{background:#1a1a1d;border:2px solid transparent;border-radius:16px;padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:.2s}
+.card:hover{border-color:#444}.card.sel{border-color:#d4a94f;background:#221e15}
+.card img{width:52px;height:52px;border-radius:50%;object-fit:cover}.card .t{flex:1}.card b{display:block}.card small{color:#999}.price{color:#d4a94f;font-weight:700}
+.days{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}.day{min-width:62px;text-align:center;background:#1a1a1d;border-radius:14px;padding:10px 0;cursor:pointer;border:2px solid transparent}
+.day.sel{border-color:#d4a94f;background:#221e15}.day small{color:#999;display:block;font-size:11px}
+.hours{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.hour{background:#1a1a1d;border-radius:12px;padding:12px 0;text-align:center;cursor:pointer;border:2px solid transparent}
+.hour.sel{border-color:#d4a94f;background:#221e15}.hour.off{opacity:.3;pointer-events:none;text-decoration:line-through}
+input{width:100%;padding:15px;border-radius:14px;border:1px solid #333;background:#1a1a1d;color:#fff;font-size:16px;margin-bottom:10px;font-family:inherit}
+.btn{width:100%;padding:17px;border:none;border-radius:16px;background:#d4a94f;color:#111;font-weight:700;font-size:17px;margin-top:16px;cursor:pointer;font-family:inherit}
+.btn:disabled{opacity:.35}.back{background:none;color:#999;font-size:14px;margin-top:6px}
+.sum{background:#1a1a1d;border-radius:16px;padding:16px;line-height:1.9}.ok{text-align:center;padding-top:40px}.ok .c{font-size:64px}
+.hide{display:none}.info{display:flex;gap:14px;color:#aaa;font-size:13px;margin-top:14px}
+</style></head><body><div class="app">
+<div class="brand"><img src="logo.svg" alt="LuniCitas">LUNICITAS</div>
+<section id="s0"><div class="hero"><h1>Barbería El Estilo</h1><p>★ 4.9 · Abierto hoy 9:00 – 19:00</p></div>
+<div class="info"><span>📍 Calle Principal 123</span><span>📞 Llamar</span></div>
+<p style="color:#bbb;margin-top:16px;font-size:14px">Cortes clásicos y modernos, barba y más. Reserva en menos de un minuto, sin crear cuenta.</p>
+<button class="btn" onclick="go(1)">Reservar cita</button></section>
+<section id="s1" class="hide"><div class="steps"><span class="on"></span><span></span><span></span></div>
+<h2>¿Qué te hacemos hoy?</h2><div id="svc"></div><h2>Elige tu barbero</h2><div id="brb"></div>
+<button class="btn" id="b1" disabled onclick="go(2)">Continuar</button><button class="btn back" onclick="go(0)">← Atrás</button></section>
+<section id="s2" class="hide"><div class="steps"><span class="on"></span><span class="on"></span><span></span></div>
+<h2>¿Cuándo vienes?</h2><div class="days" id="days"></div><div class="hours" id="hours"></div>
+<button class="btn" id="b2" disabled onclick="go(3)">Continuar</button><button class="btn back" onclick="go(1)">← Atrás</button></section>
+<section id="s3" class="hide"><div class="steps"><span class="on"></span><span class="on"></span><span class="on"></span></div>
+<h2>Confirma tu cita</h2><div class="sum" id="sum"></div><h2>Tus datos</h2>
+<input id="nm" placeholder="Tu nombre" oninput="chk()"><input id="ph" type="tel" placeholder="Tu teléfono (WhatsApp)" oninput="chk()">
+<button class="btn" id="b3" disabled onclick="go(4)">Confirmar reserva</button><button class="btn back" onclick="go(2)">← Atrás</button></section>
+<section id="s4" class="hide ok"><div class="c">✅</div><h2>¡Listo, <span id="who"></span>!</h2>
+<p style="color:#bbb">Tu cita quedó reservada. Te enviaremos un recordatorio por WhatsApp.</p><div class="sum" id="sum2" style="margin-top:18px;text-align:left"></div>
+<button class="btn" onclick="location.reload()">Volver al inicio</button></section>
+</div>
+<script>
+const S=[["Corte clásico","30 min",12],["Corte + barba","45 min",18],["Fade / degradado","40 min",15],["Arreglo de barba","20 min",8]];
+const B=[["Carlos","Especialista en fades","https://i.pravatar.cc/100?img=12"],["Miguel","Cortes clásicos","https://i.pravatar.cc/100?img=33"],["Andrés","Barbas y diseños","https://i.pravatar.cc/100?img=59"],["Cualquiera","El primero disponible","https://i.pravatar.cc/100?img=68"]];
+let st={};const $=i=>document.getElementById(i);
+function go(n){for(let i=0;i<5;i++)$('s'+i).classList.toggle('hide',i!==n);window.scrollTo(0,0);if(n>=3)fill()}
+$('svc').innerHTML=S.map((s,i)=>`<div class="card" onclick="pick('svc',${i},this)"><div class="t"><b>${s[0]}</b><small>${s[1]}</small></div><span class="price">$${s[2]}</span></div>`).join('');
+$('brb').innerHTML=B.map((b,i)=>`<div class="card" onclick="pick('brb',${i},this)"><img src="${b[2]}"><div class="t"><b>${b[0]}</b><small>${b[1]}</small></div></div>`).join('');
+const dn=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];let d=new Date();let dh='';
+for(let i=0;i<7;i++){let x=new Date(d);x.setDate(d.getDate()+i);dh+=`<div class="day" onclick="pick('day',${i},this)" data-l="${i==0?'Hoy':dn[x.getDay()]} ${x.getDate()}"><small>${i==0?'Hoy':dn[x.getDay()]}</small><b>${x.getDate()}</b></div>`}
+$('days').innerHTML=dh;
+function hours(){let h=['9:00','9:45','10:30','11:15','12:00','14:00','14:45','15:30','16:15','17:00','17:45','18:30'];
+$('hours').innerHTML=h.map(t=>`<div class="hour ${Math.random()<.3?'off':''}" onclick="pick('hr','${t}',this)">${t}</div>`).join('')}
+function pick(k,v,el){el.parentNode.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');st[k]=v;
+if(k=='day'){st.dl=el.dataset.l;delete st.hr;hours()}
+$('b1').disabled=!(st.svc!=null&&st.brb!=null);$('b2').disabled=!(st.day!=null&&st.hr)}
+function chk(){$('b3').disabled=!($('nm').value.trim()&&$('ph').value.trim().length>6)}
+function fill(){let s=S[st.svc];let t=`✂ <b>${s[0]}</b> · ${s[1]}<br>💈 Con <b>${B[st.brb][0]}</b><br>📅 <b>${st.dl}</b> a las <b>${st.hr}</b><br>💵 Total: <b class="price">$${s[2]}</b>`;$('sum').innerHTML=t;$('sum2').innerHTML=t;$('who').textContent=$('nm').value.split(' ')[0]}
+</script></body></html>
